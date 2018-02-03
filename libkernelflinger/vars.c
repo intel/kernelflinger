@@ -767,6 +767,28 @@ char *get_serialno_var()
 	return (char *)data;
 }
 
+/**
+ * Generate a random serial number of length len which matches
+ * the regex [A-Z0-9]
+ */
+void generate_random_serial_number(CHAR8* string, int len) {
+	int i, ret;
+
+	ret = generate_random_numbers(string, len);
+	if (EFI_ERROR(ret))
+		efi_perror(ret, L"Failed to generate random number");
+
+	for (i = 0; i < len; i++) {
+		CHAR8 curr = string[i];
+		curr = curr % 36;
+		if (curr < 26)
+			string[i] = curr + 'A';
+		else
+			string[i] = curr - 26 + '0';
+	}
+}
+
+
 /* Per Android CDD, the value must be 7-bit ASCII and match the regex
  * ^[a-zA-Z0-9](6,20)$  */
 char *get_serial_number(void)
@@ -776,6 +798,7 @@ char *get_serial_number(void)
 	char *pos;
 	unsigned int zeroes = 0;
 	UINTN len;
+	int ret;
 
 	if (serialno[0] != '\0')
 		return serialno;
@@ -831,19 +854,23 @@ char *get_serial_number(void)
 
 	return serialno;
 bad:
-#ifdef BUILD_ANDROID_THINGS
 	pos = get_serialno_var();
+
 	if (pos == NULL) {
-		error(L"SERIAL number is NULL\n");
-		strncpy((CHAR8 *)serialno, (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
+		CHAR8 gen_string[12] = "";
+		generate_random_serial_number(gen_string, 10);
+
+		efi_snprintf((CHAR8*)serialno, SERIALNO_MAX_SIZE + 1, (CHAR8*) "00badbios0%a", gen_string);
+		ret = set_efi_variable(&loader_guid, SERIAL_NUM_VAR, SERIALNO_MAX_SIZE + 1, (VOID *)serialno, TRUE, FALSE);
+		if (EFI_ERROR(ret))
+			efi_perror(ret, L"Failed to set the uefi variable");
+
 	} else {
-		error(L"Valid serial number read from EFI vars\n");
+		error(L"Serial number read from EFI var\n");
 		strncpy((CHAR8 *)serialno, (CHAR8 *)pos, SERIALNO_MAX_SIZE);
 		FreePool(pos);
 	}
-#else
-	strncpy((CHAR8 *)serialno, (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
-#endif
+
 	return serialno;
 }
 
