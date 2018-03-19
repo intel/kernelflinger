@@ -83,10 +83,10 @@ EFI_STATUS set_platform_secure_boot(__attribute__((unused)) IN UINT8 secure)
  */
 BOOLEAN is_platform_secure_boot_enabled(VOID)
 {
-	EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
+	return TRUE;
+/*	EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 	EFI_STATUS ret;
 	UINT8 value;
-
 	ret = get_efi_variable_byte(&global_guid, SETUP_MODE_VAR, &value);
 	if (EFI_ERROR(ret))
 		return FALSE;
@@ -98,7 +98,7 @@ BOOLEAN is_platform_secure_boot_enabled(VOID)
 	if (EFI_ERROR(ret))
 		return FALSE;
 
-	return value == 1;
+	return value == 1;*/
 }
 
 BOOLEAN is_eom_and_secureboot_enabled(VOID)
