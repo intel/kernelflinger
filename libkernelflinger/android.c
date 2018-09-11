@@ -1010,6 +1010,8 @@ static EFI_STATUS setup_command_line(
                 goto out;
         }
 
+        prepend_command_line(&cmdline16, L"ignore_loglevel printk.devkmsg=on");
+
         ret = prepend_command_line(&cmdline16, L"androidboot.bootreason=%s", bootreason);
         if (EFI_ERROR(ret))
                 goto out;
