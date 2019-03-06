@@ -352,6 +352,58 @@ static void init_driver_objs(UINT8 subclass,
 	gEndpointObjs[1].EndpointCompDesc  = NULL;
 }
 
+static BOOLEAN polling_based = FALSE;
+static EFI_EVENT usb_event = NULL;
+static VOID EFIAPI do_usb_run (
+		EFI_EVENT __attribute__((unused))Event,
+		VOID __attribute__((unused))*Context)
+{
+	EFI_STATUS ret;
+
+	ret = uefi_call_wrapper(usb_device->Run, 2, usb_device, 0);
+	if (EFI_ERROR(ret) && ret != EFI_TIMEOUT) {
+		efi_perror(ret, L"Error occurred during usb run");
+		if (usb_event) {
+			uefi_call_wrapper(BS->SetTimer, 3, usb_event, TimerCancel, 0);
+			uefi_call_wrapper(BS->CloseEvent, 1, usb_event);
+			usb_event = NULL;
+		}
+	}
+}
+
+static void enable_event_based_usb_run(void)
+{
+	EFI_STATUS ret;
+
+	ret = uefi_call_wrapper(BS->CreateEvent,
+			5,
+			EVT_TIMER | EVT_NOTIFY_SIGNAL,
+			TPL_NOTIFY,
+			do_usb_run,
+			NULL,
+			&usb_event
+			);
+	if (EFI_ERROR (ret)) {
+		usb_event = NULL;
+		polling_based = TRUE;
+		return;
+	}
+
+	ret = uefi_call_wrapper(BS->SetTimer,
+			3,
+			usb_event,
+			TimerPeriodic,
+			300000
+			);
+	if (EFI_ERROR (ret)) {
+		uefi_call_wrapper(BS->CloseEvent, 1, usb_event);
+		usb_event = NULL;
+		polling_based = TRUE;
+		return;
+	}
+	polling_based = FALSE;
+}
+
 EFI_STATUS usb_start(UINT8 subclass, UINT8 protocol,
 		     CHAR16 *str_configuration, CHAR16 *str_interface,
 		     start_callback_t start_cb, data_callback_t rx_cb,
@@ -390,6 +442,7 @@ EFI_STATUS usb_start(UINT8 subclass, UINT8 protocol,
 			efi_perror(ret, L"Can't init xDCI by self implemented interface");
 			return ret;
 		}
+		polling_based = TRUE;
 		error(L"Self implemented USB device mode protocol running");
 #else
 		return EFI_UNSUPPORTED;
@@ -416,6 +469,9 @@ EFI_STATUS usb_start(UINT8 subclass, UINT8 protocol,
 		return ret;
 	}
 
+	if (polling_based == FALSE)
+		enable_event_based_usb_run();
+
 	return EFI_SUCCESS;
 }
 
@@ -439,6 +495,12 @@ EFI_STATUS usb_stop(void)
 		return ret;
 	}
 
+	if (usb_event) {
+		uefi_call_wrapper(BS->SetTimer, 3, usb_event, TimerCancel, 0);
+		uefi_call_wrapper(BS->CloseEvent, 1, usb_event);
+		usb_event = NULL;
+	}
+	polling_based = FALSE;
 	start_callback = NULL;
 	rx_callback = NULL;
 	tx_callback = NULL;
@@ -448,5 +510,9 @@ EFI_STATUS usb_stop(void)
 
 EFI_STATUS usb_run(void)
 {
-	return uefi_call_wrapper(usb_device->Run, 2, usb_device, 1);
+
+	if (polling_based)
+		return uefi_call_wrapper(usb_device->Run, 2, usb_device, 1);
+	else
+		return EFI_TIMEOUT;
 }
