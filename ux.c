@@ -593,3 +593,12 @@ VOID ux_display_vendor_splash(VOID) {
 		ui_display_vendor_splash();
 	}
 }
+
+#ifdef COUNTDOWN
+VOID ux_display_countdown(VOID) {
+        ux_display_img_battery("three", 1);
+        ux_display_img_battery("two", 1);
+        ux_display_img_battery("one", 1);
+        ui_clear_screen();
+}
+#endif

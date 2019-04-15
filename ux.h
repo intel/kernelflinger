@@ -36,6 +36,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#define COUNTDOWN
 #include "targets.h"
 
 enum ux_error_code {
@@ -73,5 +74,9 @@ VOID ux_display_low_battery(UINTN delay);
 VOID ux_display_empty_battery(VOID);
 
 VOID ux_display_vendor_splash(VOID);
+
+#ifdef COUNTDOWN
+VOID ux_display_countdown(VOID);
+#endif
 
 #endif

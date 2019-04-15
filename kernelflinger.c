@@ -1124,7 +1124,7 @@ static VOID boot_error(enum ux_error_code error_code, UINT8 boot_state,
 {
 	BOOLEAN power_off = FALSE;
 	enum boot_target bt;
-
+        return; //hacked only for demo to skip warning
 	if (boot_state > min_boot_state()) {
 		power_off = TRUE;
 
@@ -1137,7 +1137,7 @@ static VOID boot_error(enum ux_error_code error_code, UINT8 boot_state,
 #endif
 	}
 #ifdef USE_UI
-	bt = ux_prompt_user(error_code, power_off, boot_state, hash, hash_size);
+	//bt = ux_prompt_user(error_code, power_off, boot_state, hash, hash_size);
 
 	if (bt == CRASHMODE) {
 		debug(L"Rebooting to bootloader recover mode");
@@ -1229,8 +1229,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	/* gnu-efi initialization */
 	InitializeLib(image, sys_table);
 
+#ifdef COUNTDOWN
+        ux_display_countdown();
+#endif
+
 #ifdef USE_UI
-	ux_display_vendor_splash();
+	//ux_display_vendor_splash();
 #endif
 
 	debug(KERNELFLINGER_VERSION);
@@ -1306,7 +1310,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	if (boot_target == EXIT_SHELL)
 		return EFI_SUCCESS;
 	if (boot_target == CRASHMODE) {
-#ifdef USE_UI
+#if 0//def USE_UI
 		boot_target = ux_prompt_user_for_boot_target(NO_ERROR_CODE);
 		if (boot_target != FASTBOOT)
 			reboot_to_target(boot_target, EfiResetCold);
@@ -1329,7 +1333,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	if (boot_target == POWER_OFF)
 		halt_system();
 
-#ifdef USE_UI
+#if 0//def USE_UI
 	if (boot_target == CHARGER)
 		ux_display_empty_battery();
 #else
