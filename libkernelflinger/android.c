@@ -987,8 +987,8 @@ static EFI_STATUS setup_command_line(
         serialno = get_serial_number();
         if (serialno) {
                 ret = prepend_command_line(&cmdline16,
-                                L"androidboot.serialno=%a g_ffs.iSerialNumber=%a",
-                                serialno, serialno);
+                                L"androidboot.serialno=%a g_ffs.iSerialNumber=%a xhci-dbgraw.serialno=%a",
+				serialno, serialno, serialno);
                 if (EFI_ERROR(ret))
                         goto out;
         }
