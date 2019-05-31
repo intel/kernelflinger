@@ -47,6 +47,7 @@
 //Array for recording boot time of every stage
 static unsigned bt_stamp[TM_POINT_LAST];
 static unsigned int efi_enter_point = 0;
+static BOOLEAN  time_stamp = TRUE;
 
 typedef union
 {
@@ -98,6 +99,11 @@ uint32_t boottime_in_msec(void)
 
 	cpu_freq = get_cpu_freq();
 
+	if (cpu_freq == 0) {
+		time_stamp = FALSE;
+		return 0;
+	}
+
 	tick = __RDTSC();
 	bt_us = (((unsigned) (tick >> 6)) / cpu_freq) << 6;
 	bt_ms = bt_us / 1000;
@@ -107,7 +113,7 @@ uint32_t boottime_in_msec(void)
 
 void set_boottime_stamp(int num)
 {
-	if ((num < 0) || (num >= TM_POINT_LAST))
+	if ((num < 0) || (num >= TM_POINT_LAST) || time_stamp == FALSE)
 		return;
 
 	bt_stamp[num] = boottime_in_msec();
