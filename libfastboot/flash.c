@@ -553,16 +553,25 @@ static EFI_STATUS erase_blocks(EFI_HANDLE handle, EFI_BLOCK_IO *bio, EFI_LBA sta
 	return fill_zero(bio, start, end);
 }
 
-EFI_STATUS erase_by_label(CHAR16 *label)
+EFI_STATUS erase_by_label(CHAR16 *label, __attribute__((unused)) BOOLEAN fast)
 {
 	EFI_STATUS ret;
+	UINT32 size;
 
 	ret = gpt_get_partition_by_label(label, &gparti, LOGICAL_UNIT_USER);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to get partition %s", label);
 		return ret;
 	}
-	ret = erase_blocks(gparti.handle, gparti.bio, gparti.part.starting_lba, gparti.part.ending_lba);
+
+	size = gparti.part.ending_lba - gparti.part.starting_lba;
+
+#ifdef USERDEBUG
+	if (fast)
+		size = min(0xfffff, size);
+#endif
+	ret = erase_blocks(gparti.handle, gparti.bio, gparti.part.starting_lba,
+				   gparti.part.starting_lba + size);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to erase partition %s", label);
 		return ret;

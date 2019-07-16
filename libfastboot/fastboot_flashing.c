@@ -87,7 +87,7 @@ EFI_STATUS change_device_state(enum device_state new_state, BOOLEAN interactive)
 #endif
 #endif
 	info(L"Erasing userdata...");
-	ret = erase_by_label(L"userdata");
+	ret = erase_by_label(L"userdata", TRUE);
 	if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
 		if (interactive)
 			fastboot_fail("Failed to wipe data.");

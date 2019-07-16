@@ -842,7 +842,7 @@ static void cmd_erase(INTN argc, CHAR8 **argv)
 		return;
 	}
 	info(L"Erasing %s ...", label);
-	ret = erase_by_label(label);
+	ret = erase_by_label(label, FALSE);
 	if (EFI_ERROR(ret)) {
 		FreePool(label);
 		fastboot_fail("Erase failure: %r", ret);

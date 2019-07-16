@@ -246,7 +246,7 @@ exit:
 	   partition only and in the context of a UEFI device.  We
 	   have to get rid of this potential second FAT32
 	   partition.  */
-	erase_ret = erase_by_label(tmp_part);
+	erase_ret = erase_by_label(tmp_part, FALSE);
 	if (EFI_ERROR(erase_ret))
 		efi_perror(erase_ret, L"Failed to erase '%s' partition", tmp_part);
 
