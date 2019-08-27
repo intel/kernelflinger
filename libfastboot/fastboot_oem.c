@@ -410,7 +410,7 @@ static void cmd_oem_set_storage(INTN argc, CHAR8 **argv)
 	set_device_security_info(NULL);
 
 #ifdef USE_TPM
-	if (!is_boot_device_removable())
+	if (!is_live_boot())
 		tpm2_init();
 #endif
 

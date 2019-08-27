@@ -48,6 +48,7 @@ enum ux_error_code {
         BOOTIMAGE_UNTRUSTED_CODE,
         CRASH_EVENT_CODE,
         NOT_BOOTABLE_CODE,
+        LIVE_BOOT_CODE,
         MAX_ERROR_CODE
 };
 

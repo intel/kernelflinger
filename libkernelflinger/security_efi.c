@@ -101,8 +101,8 @@ EFI_STATUS set_device_security_info(__attribute__((unused)) IN void *security_da
 	UINT8 i;
 
 	// Set the fixed RPMB key
-	if (is_boot_device_removable()) {
-		// For removable storage, such as USB disk, always use one fixed RPMB key.
+	if (is_live_boot()) {
+		// For USB live boot case, always use one fixed RPMB key.
 		return set_rpmb_derived_key(fixed_rpmb_keys, RPMB_KEY_SIZE, 1);
 	}
 
@@ -209,7 +209,7 @@ EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
 	}
 
 #ifdef USE_TPM
-	if (!is_boot_device_removable()) {
+	if (!is_live_boot()) {
 		ret = tpm2_read_trusty_seed(seed);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Failed to read trusty seed from TPM");

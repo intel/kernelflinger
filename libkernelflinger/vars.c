@@ -266,6 +266,10 @@ enum device_state get_current_state()
 #endif
 
 	if (current_state == UNKNOWN_STATE) {
+		if (is_live_boot()) {
+			current_state = UNLOCKED;
+			goto exit;
+		}
 #ifdef SECURE_STORAGE_RPMB
 		ret = read_rpmb_device_state(&val);
 		stored_state = &val;
@@ -327,7 +331,7 @@ exit:
 EFI_STATUS set_current_state(enum device_state state)
 {
 	UINT8 stored_state;
-	EFI_STATUS ret;
+	EFI_STATUS ret = EFI_SUCCESS;
 
 	switch (state) {
 	case LOCKED:
@@ -340,13 +344,15 @@ EFI_STATUS set_current_state(enum device_state state)
 		return EFI_INVALID_PARAMETER;
 	}
 
+	if (!is_live_boot()) {
 #ifdef SECURE_STORAGE_RPMB
-	ret = write_rpmb_device_state(stored_state);
+		ret = write_rpmb_device_state(stored_state);
 #else
-	ret = set_efi_variable(&fastboot_guid, OEM_LOCK,
-					  sizeof(stored_state), &stored_state,
-					  TRUE, FALSE);
+		ret = set_efi_variable(&fastboot_guid, OEM_LOCK,
+						  sizeof(stored_state), &stored_state,
+						  TRUE, FALSE);
 #endif
+	}
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to set %s variable", OEM_LOCK);
 		return ret;

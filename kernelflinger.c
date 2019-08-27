@@ -1357,7 +1357,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 			BOOTLOADER_FILE, BOOTLOADER_FILE_BAK, KFSELF_FILE, KFBACKUP_FILE);
 
 #ifdef USE_TPM
-	if (!is_boot_device_removable()) {
+	if (!is_live_boot()) {
 		ret = tpm2_init();
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Failed to init TPM, enter fastboot mode");
@@ -1431,7 +1431,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 #ifdef USERDEBUG
 	debug(L"checking device state");
 
-	if (device_is_unlocked()) {
+	if (is_live_boot()) {
+		boot_state = BOOT_STATE_ORANGE;
+		lock_prompted = TRUE;
+		boot_error(LIVE_BOOT_CODE, boot_state, NULL, 0);
+	} else if (device_is_unlocked()) {
 		boot_state = BOOT_STATE_ORANGE;
 		debug(L"Device is unlocked");
 	} else if (!is_platform_secure_boot_enabled() && !device_is_provisioning()) {

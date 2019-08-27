@@ -760,8 +760,8 @@ EFI_STATUS rpmb_storage_init(void)
 	BOOLEAN real = FALSE;
 
 #ifndef RPMB_SIMULATE
-	if (!is_boot_device_removable()) {
-		// For removable storage, such as USB disk, always use simulate RPMB.
+	if (!is_live_boot()) {
+		// For USB live boot case, always use simulate RPMB.
 		// For virtual storage, always use real rpmb interface but the decision to
 		// use simulate or physical are in device module side not in android osloader.
 		// For other cases, Check life cycle and secure boot.

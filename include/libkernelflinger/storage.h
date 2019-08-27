@@ -88,7 +88,7 @@ EFI_STATUS fill_with(EFI_BLOCK_IO *bio, EFI_LBA start, EFI_LBA end,
 EFI_STATUS fill_zero(EFI_BLOCK_IO *bio, EFI_LBA start, EFI_LBA end);
 BOOLEAN is_cur_storage_ufs(void);
 EFI_STATUS get_logical_block_size(UINTN *logical_blk_size);
-BOOLEAN is_boot_device_removable(void);
+BOOLEAN is_live_boot(void);
 BOOLEAN is_boot_device_virtual(void);
 EFI_STATUS set_logical_unit(UINT64 user_lun, UINT64 factory_lun);
 void print_progress(EFI_LBA done, EFI_LBA total, uint32_t sec, uint32_t *prev_sec, uint32_t *prev);

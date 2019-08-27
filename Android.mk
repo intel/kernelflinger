@@ -114,6 +114,13 @@ endif
 
 ifeq ($(KERNELFLINGER_SUPPORT_USB_STORAGE),true)
     KERNELFLINGER_CFLAGS += -DUSB_STORAGE
+    ifeq ($(KERNELFLINGER_SUPPORT_LIVE_BOOT),true)
+        ifneq ($(TARGET_BUILD_VARIANT),user)
+            KERNELFLINGER_CFLAGS += -DLIVE_BOOT
+        else
+            $(warning Live boot is only supported in eng and userdebug build)
+        endif
+    endif
 endif
 
 ifeq ($(KERNELFLINGER_USE_RPMB),true)

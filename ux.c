@@ -122,6 +122,17 @@ static const ui_textline_t not_bootable_message[] = {
 #endif
 	{ NULL, NULL, FALSE }
 };
+
+static const ui_textline_t live_boot_message[] = {
+	{ &COLOR_LIGHTRED,	"WARNING:",				TRUE },
+	{ &COLOR_LIGHTGRAY,	"Live boot is used for debug purpose.",	FALSE },
+	{ &COLOR_LIGHTGRAY,	"",					FALSE },
+	{ &COLOR_LIGHTGRAY,	"Your device is in a unlocked state",	FALSE },
+	{ &COLOR_LIGHTGRAY,	"due to live boot.",			FALSE },
+	{ &COLOR_LIGHTGRAY,	"Lock/unlcok state will not be saved.",	FALSE },
+	{ NULL, NULL, FALSE }
+};
+
 #ifdef CRASHMODE_USE_ADB
 static const ui_textline_t adb_message[] = {
 	{ &COLOR_LIGHTGRAY,	"",						FALSE },
@@ -155,7 +166,8 @@ static const struct ux_prompt {
 	[SECURE_BOOT_CODE]		=	{ &COLOR_ORANGE,	secure_boot_off },
 	[BOOTIMAGE_UNTRUSTED_CODE]	=	{ &COLOR_YELLOW,	device_untrusted_bootimage},
 	[CRASH_EVENT_CODE]		=	{ &COLOR_LIGHTRED,	crash_event_message},
-	[NOT_BOOTABLE_CODE]		=	{ &COLOR_LIGHTRED,	not_bootable_message}
+	[NOT_BOOTABLE_CODE]		=	{ &COLOR_LIGHTRED,	not_bootable_message},
+	[LIVE_BOOT_CODE]		=	{ &COLOR_ORANGE,	live_boot_message}
 };
 
 static const char *VENDOR_IMG_NAME = "splash_intel";

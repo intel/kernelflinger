@@ -551,9 +551,9 @@ notfound:
 	return EFI_SUCCESS;
 }
 
-BOOLEAN is_boot_device_removable(void)
+BOOLEAN is_live_boot(void)
 {
-#ifdef USB_STORAGE
+#ifdef LIVE_BOOT
 	return cur_storage == &STORAGE(STORAGE_USB);
 #else
 	return FALSE;
