@@ -67,10 +67,10 @@ extern struct storage STORAGE(STORAGE_SDCARD);
 extern struct storage STORAGE(STORAGE_SATA);
 extern struct storage STORAGE(STORAGE_NVME);
 extern struct storage STORAGE(STORAGE_VIRTUAL);
+extern struct storage STORAGE(STORAGE_GENERAL_BLOCK);
 #ifdef USB_STORAGE
 extern struct storage STORAGE(STORAGE_USB);
 #endif
-extern struct storage STORAGE(STORAGE_GENERAL_BLOCK);
 
 
 static EFI_STATUS identify_storage(EFI_DEVICE_PATH *device_path,
@@ -86,10 +86,10 @@ static EFI_STATUS identify_storage(EFI_DEVICE_PATH *device_path,
 		, &STORAGE(STORAGE_SATA)
 		, &STORAGE(STORAGE_NVME)
 		, &STORAGE(STORAGE_VIRTUAL)
+		, &STORAGE(STORAGE_GENERAL_BLOCK)
 #ifdef USB_STORAGE
 		, &STORAGE(STORAGE_USB)
 #endif
-		, &STORAGE(STORAGE_GENERAL_BLOCK)
 	};
 
 	for (st = STORAGE_EMMC; st < STORAGE_ALL; st++) {
