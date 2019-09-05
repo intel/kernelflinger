@@ -1023,10 +1023,13 @@ EFI_STATUS read_efi_rollback_index(UINTN rollback_index_slot, uint64_t* out_roll
 	ret = get_efi_variable(&fastboot_guid, name,
 			       &size, (VOID **)&data, &flags);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to read %s EFI variable", name);
+		if (ret != EFI_NOT_FOUND)
+			efi_perror(ret, L"Failed to read EFI variable %s", name);
+		else
+			debug(L"EFI variable %s is not found", name);
 		return ret;
-	} else
-		debug(L"Success to read %s EFI variable: 0x%llx ", name, *(uint64_t *)data);
+	}
+	debug(L"Success to read EFI variable %s: 0x%llx ", name, *(uint64_t *)data);
 
 	if (size != sizeof(*out_rollback_index))
 		return EFI_COMPROMISED_DATA;
@@ -1045,9 +1048,9 @@ EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback
 	ret = set_efi_variable(&fastboot_guid, name,
 			       sizeof(rollback_index), &rollback_index, TRUE, FALSE);
 	if (EFI_ERROR(ret))
-		efi_perror(ret, L"Failed to set %s EFI variable", name);
+		efi_perror(ret, L"Failed to set EFI variable %s to 0x%11x", name, rollback_index);
 	else
-		debug(L"Success to set %s EFI variable: 0x%llx ", name, rollback_index);
+		debug(L"Success to set EFI variable %s to 0x%llx", name, rollback_index);
 
 	return ret;
 }
