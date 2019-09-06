@@ -184,7 +184,7 @@ static EFI_STATUS get_address_size_vmm(OUT UINT64 *vmm_mem_base, OUT UINT32 *vmm
         *vmm_mem_base = VMM_MEM_BASE;
         *vmm_size = VMM_MEM_SIZE;
 
-        ret = allocate_pages(AllocateAddress,
+        ret = allocate_pages(AllocateMaxAddress,
                              EfiRuntimeServicesData,
                              EFI_SIZE_TO_PAGES(VMM_MEM_SIZE),
                              vmm_mem_base);
@@ -207,7 +207,7 @@ static EFI_STATUS get_address_size_trusty(OUT UINT64 *trusty_mem_base, OUT UINT3
         *trusty_mem_base = TRUSTY_MEM_BASE;
         *trusty_size = TRUSTY_MEM_SIZE;
 
-        ret = allocate_pages(AllocateAddress,
+        ret = allocate_pages(AllocateMaxAddress,
                              EfiRuntimeServicesData,
                              EFI_SIZE_TO_PAGES(TRUSTY_MEM_SIZE),
                              trusty_mem_base);
