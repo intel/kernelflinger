@@ -42,8 +42,8 @@
 EFI_STATUS tpm2_init(void);
 EFI_STATUS tpm2_end(void);
 
-EFI_STATUS tpm2_fuse_trusty_seed(void);
 EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE]);
+EFI_STATUS tpm2_read_rpmb_key(UINT8 *rpmb_key, UINTN *key_size);
 
 EFI_STATUS tpm2_fuse_perm_attr(void *data, uint32_t size);
 
@@ -53,9 +53,16 @@ EFI_STATUS tpm2_fuse_bootloader_policy(void *data, uint32_t size);
 
 #ifndef USER
 EFI_STATUS tpm2_show_index(UINT32 index, uint8_t *out_buffer, UINTN out_buffer_size);
-EFI_STATUS tpm2_delete_index(UINT32 index);
 #endif  // USER
+
+EFI_STATUS tpm2_delete_index(UINT32 index);
 
 EFI_STATUS tpm2_fuse_lock_owner(void);
 EFI_STATUS tpm2_fuse_provision_seed(void);
+EFI_STATUS tpm2_fuse_provision_rpmb_key(void);
+
+EFI_STATUS tpm2_read_device_state(UINT8 *state);
+EFI_STATUS tpm2_write_device_state(UINT8 state);
+EFI_STATUS tpm2_read_rollback_index(size_t rollback_index_slot, uint64_t *out_rollback_index);
+EFI_STATUS tpm2_write_rollback_index(size_t rollback_index_slot, uint64_t rollback_index);
 #endif /* _TPM2_SECURITY_H_ */

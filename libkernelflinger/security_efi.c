@@ -98,6 +98,10 @@ EFI_STATUS set_device_security_info(__attribute__((unused)) IN void *security_da
 	BOOTLOADER_SEED_PROTOCOL *bls;
 	UINT8 key_count = BLS_MAX_RPMB_KEY;
 	UINT8 rpmb_keys[BLS_MAX_RPMB_KEY][RPMB_KEY_SIZE];
+#ifdef USE_TPM
+	UINT8 rpmb_key[RPMB_KEY_SIZE];
+	UINTN key_size = sizeof(rpmb_key);
+#endif
 	UINT8 i;
 
 	// Set the fixed RPMB key
@@ -124,6 +128,16 @@ EFI_STATUS set_device_security_info(__attribute__((unused)) IN void *security_da
 		ret = set_rpmb_derived_key(rpmb_keys, key_count * RPMB_KEY_SIZE, key_count);
 		return ret;
 	}
+#ifdef USE_TPM
+	ret = tpm2_read_rpmb_key(rpmb_key, &key_size);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to read RPMB key from TPM");
+		return ret;
+	} else {
+		ret = set_rpmb_derived_key(rpmb_key, key_size, 1);
+		return ret;
+	}
+#endif // USE_TPM
 
 	// Try to several possible fixed RPMB keys
 	ret = set_rpmb_derived_key(fixed_rpmb_keys, sizeof(fixed_rpmb_keys), ARRAY_SIZE(fixed_rpmb_keys));

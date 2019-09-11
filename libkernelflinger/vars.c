@@ -44,6 +44,9 @@
 #ifdef RPMB_STORAGE
 #include "rpmb_storage.h"
 #endif
+#ifdef USE_TPM
+#include "tpm2_security.h"
+#endif
 
 #define OFF_MODE_CHARGE		L"off-mode-charge"
 #define OEM_LOCK		L"OEMLock"
@@ -261,7 +264,7 @@ enum device_state get_current_state()
 	EFI_STATUS ret;
 	UINT32 flags;
 	BOOLEAN enduser;
-#ifdef SECURE_STORAGE_RPMB
+#if defined(SECURE_STORAGE_RPMB) || defined(SECURE_STORAGE_TPM)
 	UINT8 val;
 #endif
 
@@ -272,6 +275,11 @@ enum device_state get_current_state()
 		}
 #ifdef SECURE_STORAGE_RPMB
 		ret = read_rpmb_device_state(&val);
+		stored_state = &val;
+		dsize = 1;
+		flags = EFI_VARIABLE_NON_VOLATILE;
+#elif SECURE_STORAGE_TPM
+		ret = tpm2_read_device_state(&val);
 		stored_state = &val;
 		dsize = 1;
 		flags = EFI_VARIABLE_NON_VOLATILE;
@@ -347,6 +355,8 @@ EFI_STATUS set_current_state(enum device_state state)
 	if (!is_live_boot()) {
 #ifdef SECURE_STORAGE_RPMB
 		ret = write_rpmb_device_state(stored_state);
+#elif SECURE_STORAGE_TPM
+		ret = tpm2_write_device_state(stored_state);
 #else
 		ret = set_efi_variable(&fastboot_guid, OEM_LOCK,
 						  sizeof(stored_state), &stored_state,
@@ -1060,7 +1070,9 @@ EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback
 
 	return ret;
 }
+#endif  // defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
 
+#ifdef USE_AVB
 EFI_STATUS set_efi_loaded_slot(UINT8 slot)
 {
 	return set_efi_variable(&fastboot_guid, LOADED_SLOT,
@@ -1103,5 +1115,4 @@ EFI_STATUS get_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS *error)
 	FreePool(data);
 	return EFI_SUCCESS;
 }
-
-#endif // defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
+#endif  // USE_AVB

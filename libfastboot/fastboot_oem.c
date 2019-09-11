@@ -790,7 +790,25 @@ static void cmd_fuse_tpm2_provision_trusty_seed(INTN argc, __attribute__((__unus
 	fastboot_okay("");
 }
 
-#endif
+static void cmd_fuse_tpm2_provision_rpmb_key(INTN argc, __attribute__((__unused__)) CHAR8 **argv)
+{
+	EFI_STATUS ret;
+	if (argc != 1) {
+		fastboot_fail("Invalid parameters");
+		return;
+	}
+
+	ret = tpm2_fuse_provision_rpmb_key();
+	if (EFI_ERROR(ret)) {
+		fastboot_fail("Failed to provision rpmb key, %r", ret);
+		return;
+	}
+
+	fastboot_okay("");
+}
+
+
+#endif  // USE_TPM
 
 static struct fastboot_cmd COMMANDS[] = {
 	{ OFF_MODE_CHARGE,		LOCKED,		cmd_oem_off_mode_charge  },
@@ -836,7 +854,8 @@ static struct fastboot_cmd COMMANDS_FUSE[] = {
 	{ "vbmeta-key-hash",		UNLOCKED,	cmd_fuse_vbmeta_key_hash },
 	{ "bootloader-policy",		UNLOCKED,	cmd_fuse_bootloader_policy },
 	{ "lock-tpm2-owner",		UNLOCKED,	cmd_fuse_tpm2_lock_owner },
-	{ "provision-trusty-seed",	UNLOCKED,	cmd_fuse_tpm2_provision_trusty_seed }
+	{ "provision-trusty-seed",	UNLOCKED,	cmd_fuse_tpm2_provision_trusty_seed },
+	{ "provision-rpmb-key",		UNLOCKED,	cmd_fuse_tpm2_provision_rpmb_key }
 };
 #endif
 

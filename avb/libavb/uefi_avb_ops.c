@@ -33,6 +33,9 @@
 #ifdef RPMB_STORAGE
 #include "rpmb_storage.h"
 #endif
+#ifdef SECURE_STORAGE_TPM
+#include "tpm2_security.h"
+#endif
 
 extern char _binary_avb_pk_start;
 extern char _binary_avb_pk_end;
@@ -232,18 +235,24 @@ static AvbIOResult read_rollback_index(__attribute__((unused)) AvbOps* ops,
                                        uint64_t* out_rollback_index) {
   EFI_STATUS ret = AVB_IO_RESULT_OK;
 
-  if (out_rollback_index == NULL)
-    return ret;
+  debug(L"read_rollback_index called");
 
-  if (is_live_boot())
+  if (out_rollback_index == NULL) {
+    debug(L"read_rollback_index called, null");
+    return ret;
+  }
+
+  if (is_live_boot()) {
     ret = EFI_NOT_FOUND;
-  else {
+  } else {
 #if defined(SECURE_STORAGE_EFIVAR)
     ret = read_efi_rollback_index(rollback_index_slot, out_rollback_index);
 #elif defined(SECURE_STORAGE_RPMB)
     ret = read_rpmb_rollback_index(rollback_index_slot, out_rollback_index);
+#elif defined(SECURE_STORAGE_TPM)
+    ret = tpm2_read_rollback_index(rollback_index_slot, out_rollback_index);
 #else
-  *out_rollback_index = 0;
+    *out_rollback_index = 0;
 #endif
   }
 
@@ -267,13 +276,15 @@ static AvbIOResult write_rollback_index(__attribute__((unused)) AvbOps* ops,
   if (rollback_index == 0)
     return ret;
 
-  if (is_live_boot())
+  if (is_live_boot()) {
     ret = EFI_SUCCESS;
-  else {
+  } else {
 #if defined(SECURE_STORAGE_EFIVAR)
     ret = write_efi_rollback_index(rollback_index_slot, rollback_index);
 #elif defined(SECURE_STORAGE_RPMB)
     ret = write_rpmb_rollback_index(rollback_index_slot, rollback_index);
+#elif defined(SECURE_STORAGE_TPM)
+    ret = tpm2_write_rollback_index(rollback_index_slot, rollback_index);
 #endif
   }
   if (EFI_ERROR(ret)) {
