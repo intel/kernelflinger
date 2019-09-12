@@ -37,6 +37,8 @@
 #include "protocol.h"
 #include "uefi_utils.h"
 #include "vbmeta_ias.h"
+#include "lib.h"
+#include "ux.h"
 
 #ifdef RPMB_STORAGE
 #include "rpmb.h"
@@ -156,6 +158,19 @@ CHAR16 *absolute_path(EFI_HANDLE image_handle, CHAR16 *file)
 	return abs_path;
 }
 
+static VOID show_disable_secure_boot_warnning()
+{
+	enum boot_target bt = NORMAL_BOOT;
+
+#ifdef USE_UI
+	bt = ux_prompt_user(SECURE_BOOT_CODE, FALSE, BOOT_STATE_YELLOW, NULL, 0);
+#else
+	debug(L"Secure boot is disabled");
+#endif
+	if (bt != NORMAL_BOOT)
+		halt_system();
+}
+
 EFI_STATUS start_systemd_boot(EFI_HANDLE image_handle)
 {
 	EFI_STATUS ret;
@@ -229,7 +244,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 
 	vbmeta_path = absolute_path(image, VBMETA_IAS_FILE);
 	// if secureboot is disabled, return always successful and verify_pass always true
-	ret = verify_vbmeta_ias(ESP_PARTITION, absolute_path(image, VBMETA_IAS_FILE), &verify_pass);
+	ret = verify_vbmeta_ias(ESP_PARTITION, vbmeta_path, &verify_pass);
 	if (vbmeta_path != NULL)
 		FreePool(vbmeta_path);
 	if (EFI_ERROR(ret) || !verify_pass)
@@ -240,11 +255,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	if (EFI_ERROR(ret))
 		error(L"Failed to init security info");
 
-	if (!is_platform_secure_boot_enabled())
+	if (is_platform_secure_boot_enabled())
 		boot_state = BOOT_STATE_GREEN;
 	else {
-		/* TBD: show warning information clearly on screen for user consent */
 		boot_state = BOOT_STATE_YELLOW;
+		show_disable_secure_boot_warnning();
 	}
 	init_rot_data(boot_state, &g_rot_data);
 
