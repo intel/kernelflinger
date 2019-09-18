@@ -44,9 +44,8 @@
 #ifdef RPMB_STORAGE
 #include "rpmb_storage.h"
 #endif
-#ifdef USE_TPM
 #include "tpm2_security.h"
-#endif
+#include "security.h"
 
 #define OFF_MODE_CHARGE		L"off-mode-charge"
 #define OEM_LOCK		L"OEMLock"
@@ -264,73 +263,90 @@ enum device_state get_current_state()
 	EFI_STATUS ret;
 	UINT32 flags;
 	BOOLEAN enduser;
-#if defined(SECURE_STORAGE_RPMB) || defined(SECURE_STORAGE_TPM)
+#if defined(RPMB_STORAGE) || defined(USE_TPM)
 	UINT8 val;
 #endif
 
-	if (current_state == UNKNOWN_STATE) {
-		if (is_live_boot()) {
-			current_state = UNLOCKED;
-			goto exit;
-		}
-#ifdef SECURE_STORAGE_RPMB
+	if (current_state != UNKNOWN_STATE)
+		return current_state;
+
+	switch (get_secure_storage_type()) {
+	case SECURE_STORAGE_NONE:
+		current_state = UNLOCKED;
+		goto exit;
+	case SECURE_STORAGE_RPMB:
+#ifdef RPMB_STORAGE
 		ret = read_rpmb_device_state(&val);
 		stored_state = &val;
 		dsize = 1;
 		flags = EFI_VARIABLE_NON_VOLATILE;
-#elif SECURE_STORAGE_TPM
+		break;
+#else  // RPMB_STORAGE
+		// Should not go here
+		current_state = LOCKED;
+		goto exit;
+#endif  // RPMB_STORAGE
+	case SECURE_STORAGE_TPM:
+#ifdef USE_TPM
 		ret = tpm2_read_device_state(&val);
 		stored_state = &val;
 		dsize = 1;
 		flags = EFI_VARIABLE_NON_VOLATILE;
-#else
+		break;
+#else  // USE_TPM
+		current_state = LOCKED;
+		goto exit;
+#endif
+	case SECURE_STORAGE_EFI_VAR:
 		ret = get_efi_variable((EFI_GUID *)&fastboot_guid, OEM_LOCK,
 				       &dsize, (void **)&stored_state, &flags);
-#endif
-		if ((ret == EFI_NOT_FOUND) && !is_boot_device_virtual()) {
-			set_provisioning_mode(FALSE);
+	}
 
-			ret = life_cycle_is_enduser(&enduser);
-			if (EFI_ERROR(ret)) {
-				if (ret == EFI_NOT_FOUND) {
-					debug(L"OEMLock not set, device is in provisioning mode");
-					set_provisioning_mode(TRUE);
-				}
-				goto exit;
-			}
+	if ((ret == EFI_NOT_FOUND) && !is_boot_device_virtual()) {
+		set_provisioning_mode(FALSE);
 
-			if (!enduser) {
-				debug(L"Life Cycle state is not ENDUSER, allowing provisioning mode");
+		ret = life_cycle_is_enduser(&enduser);
+		if (EFI_ERROR(ret)) {
+			if (ret == EFI_NOT_FOUND) {
+				debug(L"OEMLock not set, device is in provisioning mode");
 				set_provisioning_mode(TRUE);
-				goto exit;
 			}
+			goto exit;
+		}
+
+		if (!enduser) {
+			debug(L"Life Cycle state is not ENDUSER, allowing provisioning mode");
+			set_provisioning_mode(TRUE);
+			goto exit;
+		}
 
 #ifndef USER
-			debug(L"Life Cycle state is ENDUSER");
-			debug(L"Not a USER build, enforcing provisioning mode");
-			set_provisioning_mode(TRUE);
+		debug(L"Life Cycle state is ENDUSER");
+		debug(L"Not a USER build, enforcing provisioning mode");
+		set_provisioning_mode(TRUE);
 #endif
-			goto exit;
-		}
-
-		/* If we can't read the state, be safe and assume locked. */
-		if (EFI_ERROR(ret) || !dsize) {
-			current_state = LOCKED;
-			error(L"Couldn't read %s, assuming locked", OEM_LOCK);
-			goto exit;
-		} else if (flags & EFI_VARIABLE_RUNTIME_ACCESS) {
-			current_state = LOCKED;
-			error(L"%s has RUNTIME_ACCESS flag, assuming locked", OEM_LOCK);
-		} else {
-			if (stored_state[0] & OEM_LOCK_UNLOCKED)
-				current_state = UNLOCKED;
-			else
-				current_state = LOCKED;
-
-			debug(L"device state %d", current_state);
-		}
-		FreePool(stored_state);
+		goto exit;
 	}
+
+	/* If we can't read the state, be safe and assume locked. */
+	if (EFI_ERROR(ret) || !dsize) {
+		current_state = LOCKED;
+		error(L"Couldn't read %s, assuming locked", OEM_LOCK);
+		goto exit;
+	} else if (flags & EFI_VARIABLE_RUNTIME_ACCESS) {
+		current_state = LOCKED;
+		error(L"%s has RUNTIME_ACCESS flag, assuming locked", OEM_LOCK);
+	} else {
+		if (stored_state[0] & OEM_LOCK_UNLOCKED)
+			current_state = UNLOCKED;
+		else
+			current_state = LOCKED;
+
+		debug(L"device state %d", current_state);
+	}
+
+	if (get_secure_storage_type() == SECURE_STORAGE_EFI_VAR)
+		FreePool(stored_state);
 
 exit:
 	return current_state;
@@ -783,6 +799,32 @@ char *get_serialno_var()
 	return (char *)data;
 }
 
+/**
+ * Generate a random serial number of length len which matches
+ * the regex [A-Z0-9]
+ */
+EFI_STATUS generate_random_serial_number(CHAR8* string, int len)
+{
+	EFI_STATUS ret;
+	int i;
+
+	ret = generate_random_numbers(string, len);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to generate random number");
+		return ret;
+	}
+
+	for (i = 0; i < len; i++) {
+		CHAR8 curr = string[i];
+		curr = curr % 36;
+		if (curr < 26)
+			string[i] = curr + 'A';
+		else
+			string[i] = curr - 26 + '0';
+	}
+	return ret;
+}
+
 /* Per Android CDD, the value must be 7-bit ASCII and match the regex
  * ^[a-zA-Z0-9](6,20)$  */
 char *get_serial_number(void)
@@ -1026,7 +1068,7 @@ BOOLEAN is_UEFI(VOID)
 	return val.value;
 }
 
-#if defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
+#ifdef USE_AVB
 EFI_STATUS read_efi_rollback_index(UINTN rollback_index_slot, uint64_t* out_rollback_index)
 {
 	EFI_STATUS ret;
@@ -1070,9 +1112,7 @@ EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback
 
 	return ret;
 }
-#endif  // defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
 
-#ifdef USE_AVB
 EFI_STATUS set_efi_loaded_slot(UINT8 slot)
 {
 	return set_efi_variable(&fastboot_guid, LOADED_SLOT,
@@ -1116,3 +1156,90 @@ EFI_STATUS get_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS *error)
 	return EFI_SUCCESS;
 }
 #endif  // USE_AVB
+
+EFI_STATUS efi_read_rpmb_key(UINT8 *rpmb_key, UINTN *key_size)
+{
+	CHAR8 *data;
+	EFI_STATUS ret;
+	UINTN size;
+	CHAR8 new_rpmb_key[RPMB_KEY_SIZE];
+
+
+	ret = get_efi_variable(&loader_guid, RPMB_KEY_VAR, &size, (VOID **)&data, NULL);
+	if (ret == EFI_NOT_FOUND) {
+		// Not found, generate it
+		ret = generate_random_numbers(new_rpmb_key, sizeof(new_rpmb_key));
+		if (EFI_ERROR(ret)) {
+			efi_perror(ret, L"Failed to generate RPMB key to EFI var");
+			return ret;
+		}
+		// Save it
+		ret = set_efi_variable(&loader_guid, RPMB_KEY_VAR, sizeof(new_rpmb_key), new_rpmb_key, TRUE, FALSE);
+		if (EFI_ERROR(ret)) {
+			efi_perror(ret, L"Failed to save RPMB key to EFI var");
+			return ret;
+		}
+		// Read it again
+		ret = get_efi_variable(&loader_guid, RPMB_KEY_VAR, &size, (VOID **)&data, NULL);
+	}
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to read RPMB key from EFI var");
+		return ret;
+	}
+	if (size < 32) {
+		efi_perror(ret, L"Read RPMB key from EFI var, but size is too small: %d", size);
+		FreePool(data);
+		return EFI_COMPROMISED_DATA;
+	}
+	size = min(*key_size, size);
+	memcpy(rpmb_key, data, size);
+	if (*key_size > size) {
+		memset(rpmb_key + size, 0, *key_size - size);
+		*key_size = size;
+	}
+	FreePool(data);
+	debug(L"Success read RPMB key from EFI variable");
+	return EFI_SUCCESS;
+}
+
+EFI_STATUS efi_read_trusty_seed(UINT8 *seed, UINTN seed_size)
+{
+	CHAR8 *data;
+	EFI_STATUS ret;
+	UINTN size;
+	CHAR8 new_seed[TRUSTY_SEED_SIZE];
+
+	if (seed_size != TRUSTY_SEED_SIZE)
+		return EFI_INVALID_PARAMETER;
+
+	ret = get_efi_variable(&loader_guid, TRUSTY_SEED_VAR, &size, (VOID **)&data, NULL);
+	if (ret == EFI_NOT_FOUND) {
+		// Not found, generate it
+		ret = generate_random_numbers(new_seed, sizeof(new_seed));
+		if (EFI_ERROR(ret)) {
+			efi_perror(ret, L"Failed to generate Trusty seed to EFI var");
+			return ret;
+		}
+		// Save it
+		ret = set_efi_variable(&loader_guid, TRUSTY_SEED_VAR, sizeof(new_seed), new_seed, TRUE, FALSE);
+		if (EFI_ERROR(ret)) {
+			efi_perror(ret, L"Failed to save Trusty seed to EFI var");
+			return ret;
+		}
+		// Read it again
+		ret = get_efi_variable(&loader_guid, TRUSTY_SEED_VAR, &size, (VOID **)&data, NULL);
+	}
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to read Trusty seed from EFI var");
+		return ret;
+	}
+	if (size != TRUSTY_SEED_SIZE) {
+		efi_perror(ret, L"Read Trusty seed from EFI var, but size is wrong: %d", size);
+		FreePool(data);
+		return EFI_COMPROMISED_DATA;
+	}
+	memcpy(seed, data, TRUSTY_SEED_SIZE);
+	FreePool(data);
+	debug(L"Success read Trusty seed from EFI variable");
+	return EFI_SUCCESS;
+}

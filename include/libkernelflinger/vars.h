@@ -113,6 +113,9 @@ extern const UINTN FASTBOOT_SECURED_VARS_SIZE;
 /*labels to trigger IFWI self update. Only for ABL*/
 #define IFWI_CAPSULE_UPDATE	L"IfwiCapsuleUpdate"
 
+#define RPMB_KEY_VAR		L"RpmbKey"
+#define TRUSTY_SEED_VAR		L"TrustySeed"
+
 BOOLEAN device_is_unlocked(void);
 BOOLEAN device_is_locked(void);
 BOOLEAN get_off_mode_charge(void);
@@ -168,10 +171,10 @@ UINT8 min_boot_state_policy();
 EFI_STATUS get_oak_hash(unsigned char **data_p, UINTN *size);
 #endif  // BOOTLOADER_POLICY
 
-#if defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
+#ifdef USE_AVB
 EFI_STATUS read_efi_rollback_index(UINTN rollback_index_slot, uint64_t* out_rollback_index);
 EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback_index);
-#endif
+#endif  // USE_AVB
 BOOLEAN is_UEFI(VOID);
 #ifndef USERDEBUG
 #define oem_cert NULL
@@ -188,5 +191,7 @@ EFI_STATUS get_efi_loaded_slot(UINT8 *slot);
 EFI_STATUS set_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS error);
 EFI_STATUS get_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS *error);
 
-#endif /* _VARS_H_ */
+EFI_STATUS efi_read_rpmb_key(UINT8 *rpmb_key, UINTN *key_size);
+EFI_STATUS efi_read_trusty_seed(UINT8 *seed, UINTN seed_size);
 
+#endif /* _VARS_H_ */

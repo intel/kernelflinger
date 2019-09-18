@@ -56,6 +56,8 @@ typedef struct rpmb_sim_real_storage_interface {
 	EFI_STATUS (*read_rpmb_keybox_magic)(UINT16 offset, void *buffer);
 } rpmb_sim_real_storage_interface_t;
 
+void set_try_physical_rpmb(BOOLEAN new_try);
+void set_try_simulate_rpmb(BOOLEAN new_try);
 EFI_STATUS rpmb_storage_init(void);
 EFI_STATUS get_rpmb_derived_key(OUT UINT8 **d_key, OUT UINT8 *number_d_key);
 EFI_STATUS set_rpmb_derived_key(IN VOID *kbuf, IN size_t kbuf_len, IN size_t num_key);

@@ -39,7 +39,9 @@
 #include <ui.h>
 #include <log.h>
 
+#ifndef DEFINED_SIZE_T
 typedef UINTN size_t;
+#endif
 typedef INTN ssize_t;
 
 #define offsetof(TYPE, MEMBER) ((UINTN) &((TYPE *)0)->MEMBER)

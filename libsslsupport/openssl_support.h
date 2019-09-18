@@ -5,6 +5,8 @@
 #include <efilib.h>
 
 typedef UINTN size_t;
+#define DEFINED_SIZE_T
+
 typedef long time_t;
 typedef VOID *FILE;
 

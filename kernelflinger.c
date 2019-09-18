@@ -1356,16 +1356,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	uefi_check_upgrade(g_loaded_image, BOOTLOADER_LABEL, KFUPDATE_FILE,
 			BOOTLOADER_FILE, BOOTLOADER_FILE_BAK, KFSELF_FILE, KFBACKUP_FILE);
 
-#ifdef USE_TPM
-	if (!is_live_boot()) {
-		ret = tpm2_init();
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Failed to init TPM, enter fastboot mode");
-			boot_target = FASTBOOT;
-		}
-	}
-#endif
-
 	ret = set_device_security_info(NULL);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to init security info, enter fastboot mode");

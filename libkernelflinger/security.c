@@ -77,6 +77,8 @@ union android_version {
      } __attribute__((packed)) split;
 };
 
+static secure_storage_type_t sst;
+
 
 EFI_STATUS raw_pub_key_sha256(IN const UINT8 *pub_key,
             IN UINTN pub_key_len,
@@ -361,7 +363,16 @@ EFI_STATUS init_rot_data(UINT32 boot_state, OUT struct rot_data_t *rot_data)
     return EFI_SUCCESS;
 }
 
+secure_storage_type_t get_secure_storage_type(void)
+{
+	return sst;
+}
+
+void set_secure_storage_type(secure_storage_type_t new_sst)
+{
+	debug(L"Set secure storage type to %d", new_sst);
+	sst = new_sst;
+}
 
 /* vim: softtabstop=8:shiftwidth=8:expandtab
  */
-

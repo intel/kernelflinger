@@ -47,6 +47,14 @@
 #define SETUP_MODE_VAR	        L"SetupMode"
 #define SECURE_BOOT_VAR         L"SecureBoot"
 
+typedef enum {
+        SECURE_STORAGE_NONE,
+        SECURE_STORAGE_RPMB,
+        SECURE_STORAGE_TPM,
+        SECURE_STORAGE_EFI_VAR,
+} secure_storage_type_t;
+
+
 BOOLEAN is_platform_secure_boot_enabled(VOID);
 BOOLEAN is_eom_and_secureboot_enabled(VOID);
 EFI_STATUS set_platform_secure_boot(UINT8 secure);
@@ -107,5 +115,8 @@ EFI_STATUS raw_pub_key_sha256(
         IN const UINT8 *pub_key,
         IN UINTN pub_key_len,
         OUT UINT8 **hash_p);
+
+secure_storage_type_t get_secure_storage_type(void);
+void set_secure_storage_type(secure_storage_type_t new_sst);
 
 #endif

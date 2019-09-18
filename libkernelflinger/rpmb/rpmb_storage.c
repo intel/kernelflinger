@@ -72,7 +72,7 @@ static UINT8 number_derived_key;
 
 static void dump_rpmb_key(__attribute__((unused)) UINT8 *key)
 {
-#if 0  // Change to 1 for debug the RPMB keys
+#if 1  // Change to 1 for debug the RPMB keys
 	CHAR16 buf[RPMB_KEY_SIZE * 2 + 2];
 	UINT16 i;
 
@@ -738,11 +738,24 @@ EFI_STATUS rpmb_key_init(void)
 
 	// Should output this info, since there maybe some error log about some keys failed at before.
 	log(L"Init RPMB key successfully\n");
+	dump_rpmb_key(key);
 
 err_get_rpmb_key:
 	memset(key, 0, sizeof(key));
 
 	return ret;
+}
+
+BOOLEAN try_physical_rpmb = TRUE;
+void set_try_physical_rpmb(BOOLEAN new_try)
+{
+	try_physical_rpmb = new_try;
+}
+
+BOOLEAN try_simulate_rpmb = TRUE;
+void set_try_simulate_rpmb(BOOLEAN new_try)
+{
+	try_simulate_rpmb = new_try;
 }
 
 EFI_STATUS rpmb_storage_init(void)
@@ -751,7 +764,7 @@ EFI_STATUS rpmb_storage_init(void)
 	BOOLEAN real = FALSE;
 
 #ifndef RPMB_SIMULATE
-	if (!is_live_boot()) {
+	if (!is_live_boot() && try_physical_rpmb) {
 		// For USB live boot case, always use simulate RPMB.
 		// For virtual storage, always use real rpmb interface but the decision to
 		// use simulate or physical are in device module side not in android osloader.
@@ -790,6 +803,9 @@ EFI_STATUS rpmb_storage_init(void)
 		rpmb__sim_real_storage_ops.write_rpmb_keybox_magic = write_rpmb_keybox_magic_real;
 		rpmb__sim_real_storage_ops.read_rpmb_keybox_magic = read_rpmb_keybox_magic_real;
 	} else {
+		if (!try_simulate_rpmb)
+			return EFI_NOT_FOUND;
+
 		debug(L"Use simulate RPMB");
 		rpmb__sim_real_storage_ops.is_rpmb_programed = is_rpmb_programed_simulate;
 		rpmb__sim_real_storage_ops.program_rpmb_key = program_rpmb_key_simulate;

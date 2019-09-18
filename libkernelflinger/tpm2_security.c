@@ -786,8 +786,7 @@ EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE])
 		goto out;
 	}
 
-	debug(L"Success read RPMB key from TPM");
-
+	debug(L"Success read Trusty seed from TPM");
 	return EFI_SUCCESS;
 
 out:
@@ -818,6 +817,7 @@ EFI_STATUS tpm2_read_rpmb_key(UINT8 *rpmb_key, UINTN *key_size)
 	}
 	*key_size = real_key_size;
 
+	debug(L"Success read RPMB key from TPM");
 	return EFI_SUCCESS;
 
 out:
