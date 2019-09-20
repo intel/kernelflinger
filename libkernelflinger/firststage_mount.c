@@ -129,8 +129,8 @@ EFI_STATUS install_firststage_mount_aml(enum boot_target target)
 	UINTN TableKey;
 
 #if (!defined(USE_ACPI)) && (!defined(USE_ACPIO))
-	ssdt = AmlCode;
-	ssdt_len = sizeof(AmlCode);
+	ssdt = firststage_mount_cfg_aml_code;
+	ssdt_len = sizeof(firststage_mount_cfg_aml_code);
 #else
 	return EFI_SUCCESS;
 #endif
