@@ -39,6 +39,8 @@
 #include "vbmeta_ias.h"
 #include "lib.h"
 #include "ux.h"
+#include "security.h"
+#include "security_interface.h"
 
 #ifdef RPMB_STORAGE
 #include "rpmb.h"
@@ -46,9 +48,7 @@
 #endif
 
 #ifdef USE_TRUSTY
-#include "security.h"
 #include "trusty_interface.h"
-#include "security_interface.h"
 #endif
 
 #define SYSTEMD_BOOT_FILE L"loaderx64.efi"
@@ -186,8 +186,8 @@ EFI_STATUS start_systemd_boot(EFI_HANDLE image_handle)
 	return ret;
 }
 
-#ifdef USE_TRUSTY
 struct rot_data_t g_rot_data = {0};
+#ifdef USE_TRUSTY
 EFI_STATUS load_file(EFI_HANDLE image_handle, CHAR16 *file, OUT VOID **image)
 {
 	EFI_STATUS ret;
