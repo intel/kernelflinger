@@ -36,9 +36,7 @@
 
 #include "acpi.h"
 #include "firststage_mount.h"
-#if (!defined(USE_ACPI)) && (!defined(USE_ACPIO))
 #include "firststage_mount_cfg.h"
-#endif
 #include "lib.h"
 #include "protocol/AcpiTableProtocol.h"
 #include "storage.h"
@@ -128,12 +126,8 @@ EFI_STATUS install_firststage_mount_aml(enum boot_target target)
 	UINTN ssdt_len;
 	UINTN TableKey;
 
-#if (!defined(USE_ACPI)) && (!defined(USE_ACPIO))
 	ssdt = firststage_mount_cfg_aml_code;
 	ssdt_len = sizeof(firststage_mount_cfg_aml_code);
-#else
-	return EFI_SUCCESS;
-#endif
 
 	if ((target == NORMAL_BOOT) || (target == RECOVERY) || (target == CHARGER)
 		|| (target == ESP_BOOTIMAGE) || (target == MEMORY)) {
@@ -149,8 +143,8 @@ EFI_STATUS install_firststage_mount_aml(enum boot_target target)
 
 		ret = install_acpi_table(ssdt, ssdt_len, &TableKey);
 		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Failed to install ssdt.");
-			return ret;
+			efi_perror(ret, L"Warning: failed to install ssdt.");
+			return EFI_SUCCESS;
 		}
 	}
 

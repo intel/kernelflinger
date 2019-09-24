@@ -564,6 +564,7 @@ static EFI_STATUS setup_ramdisk(UINT8 *bootimage)
 EFI_STATUS setup_acpi_table(VOID *bootimage,
                             __attribute__((__unused__)) enum boot_target target)
 {
+        EFI_STATUS ret;
         struct boot_img_hdr *aosp_header;
 
         debug(L"Setup acpi table");
@@ -573,11 +574,19 @@ EFI_STATUS setup_acpi_table(VOID *bootimage,
         if (aosp_header->header_version >= 1) {
                 VOID *acpio;
                 acpio = bootimage + aosp_header->recovery_acpio_offset;
-                return install_acpi_table_from_recovery_acpio(acpio);
+                ret = install_acpi_table_from_recovery_acpio(acpio);
+                if (EFI_ERROR(ret)) {
+                        efi_perror(ret, L"Install from recovery_acpio failed");
+                        return ret;
+                }
         }
 #endif
 #ifdef USE_FIRSTSTAGE_MOUNT
-        return install_firststage_mount_aml(target);
+        ret = install_firststage_mount_aml(target);
+        if (EFI_ERROR(ret)) {
+                efi_perror(ret, L"Install builtin early mount table failed");
+                return ret;
+        }
 #endif
         debug(L"Acpi table not setup");
         return EFI_SUCCESS;
