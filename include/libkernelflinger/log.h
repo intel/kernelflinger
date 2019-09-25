@@ -41,6 +41,8 @@ EFI_STATUS log_flush_to_var(BOOLEAN nonvol);
 
 void log(const CHAR16 *fmt, ...);
 void vlog(const CHAR16 *fmt, va_list args);
+EFI_STATUS log_open_output_file(EFI_HANDLE handle, const CHAR16 *filename);
+void log_close_output_file(void);
 
 #ifdef __DISABLE_DEBUG_PRINT
 #define DEBUG_MESSAGES 0

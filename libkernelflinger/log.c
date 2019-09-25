@@ -54,6 +54,10 @@ static CHAR8 buf8[BUFFER_SIZE];
 static CHAR8 log_buf[LOG_BUF_SIZE];
 static UINTN pos, last_pos;
 
+static CHAR8 data_buf[LOG_BUF_SIZE];
+static UINTN buf_pos = 0;
+static EFI_FILE *log_file;
+
 EFI_STATUS log_flush_to_var(BOOLEAN nonvol)
 {
 	static volatile BOOLEAN running;
@@ -140,6 +144,71 @@ static EFI_STATUS serial_init()
 	return EFI_SUCCESS;
 }
 
+EFI_STATUS log_open_output_file(EFI_HANDLE handle, const CHAR16 *filename)
+{
+	EFI_FILE *root;
+	EFI_STATUS ret = EFI_SUCCESS;
+
+	root = LibOpenRoot(handle);
+	if (!root)
+		return EFI_LOAD_ERROR;
+
+#if DEBUG_MESSAGES
+	ret = uefi_call_wrapper(root->Open, 5, root, &log_file, (CHAR16 *)filename,
+			EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 0);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Can't create '%s' logfile",filename);
+		return ret;
+	}
+#endif
+	if (!log_file) {
+		error(L"Can't create '%s' logfile",filename);
+		ret = EFI_NOT_FOUND;
+	}
+
+	return ret;
+}
+
+void log_to_file(CHAR8 *msg, UINTN *length)
+{
+	EFI_FILE *file;
+	EFI_STATUS ret;
+
+	file = log_file;
+	if (!file)
+		return;
+
+	if (buf_pos) {
+		ret = uefi_call_wrapper(file->Write, 3, file, &buf_pos, data_buf);
+		if (EFI_ERROR(ret)) {
+			efi_perror(ret, L"Can't write log file with block");
+			return;
+		}
+		buf_pos = 0;
+	}
+	ret = uefi_call_wrapper(file->Write, 3, file, length, msg);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Can't write log file with a line");
+		return;
+	}
+	uefi_call_wrapper(file->Flush, 1, file);
+}
+
+void log_close_output_file(void)
+{
+	EFI_FILE *file;
+	EFI_STATUS ret;
+
+	file = log_file;
+	if (!file)
+		return;
+
+	ret = uefi_call_wrapper(file->Close, 1, file);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Can't close log file");
+	}
+}
+
 void vlog(const CHAR16 *fmt, va_list args)
 {
 	UINTN length;
@@ -158,6 +227,20 @@ void vlog(const CHAR16 *fmt, va_list args)
 		return;
 
 	log_append_to_buffer(buf8, length);
+
+#if DEBUG_MESSAGES
+	if (!log_file) {
+		if (buf_pos + length >= LOG_BUF_SIZE ) {
+			length = (LOG_BUF_SIZE ) - buf_pos;
+		}
+		if (length) {
+			memcpy(data_buf + buf_pos, buf8, length);
+			buf_pos += length;
+		}
+	}
+#endif
+	if (log_file)
+		log_to_file(buf8, &length);
 }
 
 void log(const CHAR16 *fmt, ...)

@@ -431,6 +431,7 @@ static inline EFI_STATUS handover_jump(EFI_HANDLE image,
 #endif
         log(L"handover jump ...\n");
 
+        log_close_output_file();
         ret = setup_gdt();
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"Failed to setup GDT");

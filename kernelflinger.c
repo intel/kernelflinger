@@ -479,6 +479,17 @@ static enum boot_target check_command_line(VOID)
 			continue;
 		}
 
+		if (!StrCmp(argv[pos], L"-l")) {
+			pos++;
+			if (pos >= (argc + 1)) {
+				error(L"-l requires output kernelflinger log to the file");
+				goto out;
+			}
+			if (EFI_ERROR(log_open_output_file(g_disk_device, L"\\kernelflinger.log")))
+				error(L"unexpected argument -l");
+			continue;
+		}
+
 		/* If we get here the argument isn't recognized */
 		if (pos == 0) {
 			/* EFI is inconsistent and only seems to populate the image

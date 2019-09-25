@@ -943,6 +943,7 @@ static void usage(__attribute__((__unused__)) INTN argc,
 	Print(L"  installer is an EFI application acting like the fastboot command.\n\n");
 	Print(L" COMMANDS               fastboot commands (cf. the fastboot manual page)\n");
 	Print(L" -i                     include the device which is loaded from, must be the first option\n");
+	Print(L" -l                     output log to installer.log\n");
 	Print(L" --help, -h             print this help and exit\n");
 	Print(L" --version, -v          print Installer version and exit\n");
 	Print(L" --batch, -b FILE       run all the fastboot commands of FILE\n");
@@ -1086,6 +1087,16 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		}
 	}
 
+	/* Output log to the installer.log if run the command */
+	if (options) {
+		if (!strncmp(options, "-l", 2)) {
+			options += 2;
+			skip_whitespace((char **)&options);
+			if (EFI_ERROR(log_open_output_file(loaded_img->DeviceHandle, L"\\installer.log")))
+				Print(L"Invalid command [installer -l] in user mode\n");
+		}
+	}
+
 	if (!options || *options == '\0')
 		options = build_default_options();
 	store_command((char *)options, NULL);
@@ -1113,6 +1124,7 @@ exit:
 	FreePool(buf);
 	if (EFI_ERROR(ret))
 		return ret;
+	log_close_output_file();
 	return last_cmd_succeeded ? EFI_SUCCESS : EFI_INVALID_PARAMETER;
 }
 
