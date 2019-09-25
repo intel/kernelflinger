@@ -50,8 +50,7 @@
 
 #define PCR_7   7
 
-#define Set_PcrSelect_Bit(pcrSelection, pcr) \
-				(pcrSelection).pcrSelect[((pcr)/8)] |= (1 << ((pcr) % 8));
+#define Set_PcrSelect_Bit(pcrSelection, pcr) ((pcrSelection).pcrSelect[((pcr)/8)] |= (1 << ((pcr) % 8)))
 
 #define DIGEST_SIZE 32
 
@@ -60,8 +59,7 @@ typedef struct {
 	TPMA_NV attribute;
 } attribute_matrix_t;
 
-static const attribute_matrix_t config_table[MAX_NV_NUMBER] =
-{
+static const attribute_matrix_t config_table[MAX_NV_NUMBER] = {
 #ifdef BUILD_ANDROID_THINGS
 	{NV_INDEX_AT_PERM_ATTR,
 		{.TPMA_NV_POLICYREAD = 1,
@@ -72,16 +70,25 @@ static const attribute_matrix_t config_table[MAX_NV_NUMBER] =
 	},
 #endif
 	{NV_INDEX_TRUSTYOS_SEED,
-		{.TPMA_NV_POLICYREAD = 1, /* The Index data may be read if the authPolicy is satisfied. */
-		.TPMA_NV_POLICYWRITE = 1, /* Authorizations to change the Index contents that require
-					USER role may be provided with a policy session. */
-		.TPMA_NV_WRITEALL = 1, /* A partial write of the Index data is not allowed. The write size
-					shall match the defined space size.  */
-		.TPMA_NV_WRITEDEFINE = 1, /* TPM2_NV_WriteLock may be used to prevent further writes
-					to this location regardless of TPM reset/restart. */
-		.TPMA_NV_READ_STCLEAR = 1, /* TPM2_NV_ReadLock may be used to SET TPMA_NV_READLOCKED
-					for this Index. When TPMA_NV_READLOCKED is set after calling TPM2_NV_ReadLock,
-					Reads of this Index are blocked until the next TPM Reset or TPM Restart*/
+		/* The Index data may be read if the authPolicy is satisfied. */
+		{.TPMA_NV_POLICYREAD = 1,
+		/* Authorizations to change the Index contents that require
+		 * USER role may be provided with a policy session.
+		 */
+		.TPMA_NV_POLICYWRITE = 1,
+		/* A partial write of the Index data is not allowed. The write size
+		 * shall match the defined space size.
+		 */
+		.TPMA_NV_WRITEALL = 1,
+		/* TPM2_NV_WriteLock may be used to prevent further writes
+		 * to this location regardless of TPM reset/restart.
+		 */
+		.TPMA_NV_WRITEDEFINE = 1,
+		/* TPM2_NV_ReadLock may be used to SET TPMA_NV_READLOCKED
+		 * for this Index. When TPMA_NV_READLOCKED is set after calling TPM2_NV_ReadLock,
+		 * Reads of this Index are blocked until the next TPM Reset or TPM Restart.
+		 */
+		.TPMA_NV_READ_STCLEAR = 1,
 		}
 	},
 	{NV_INDEX_VBMETA_KEY_HASH,
@@ -118,7 +125,7 @@ static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
 	encryptedSalt.size = 0;
 	nonceCaller.size = DIGEST_SIZE;
 	ret = Tpm2GetRandom(DIGEST_SIZE, &nonceCaller);
-	if(EFI_ERROR(ret)) {
+	if (EFI_ERROR(ret)) {
 		error(L"failed to get random: %d", ret);
 		return ret;
 	}
@@ -151,12 +158,12 @@ static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
 
 	//1. Read PCRs (&pcrSelectionOut MUST NOT be NULL!!!!!)
 	ret = Tpm2PcrRead(&pcrs, &pcrUpdateCounter, &pcrSelectionOut, &pcrValues);
-	if(EFI_ERROR(ret)) {
+	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Tpm2PcrRead failed");
 		return ret;
 	}
 
-	if(pcrSelectionOut.count <= 0) {
+	if (pcrSelectionOut.count <= 0) {
 		error(L"pcrSelectionOut.count <= 0");
 		return EFI_INVALID_PARAMETER;
 	}
@@ -177,7 +184,7 @@ static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
 	}
 
 	//4. Get policyDigest hash
-	if(policy_digest) {
+	if (policy_digest) {
 		ret = Tpm2PolicyGetDigest(*sessionhandle, policy_digest);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"PolicyGetDigest failed");
@@ -195,11 +202,11 @@ static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
 	}
 
 	//5. Apply policy session handle
-	if(policy_session) {
+	if (policy_session) {
 		policy_session->sessionHandle = *sessionhandle;
 		policy_session->hmac.size = 0;
 		policy_session->nonce.size = 0;
-		*((UINT8 *)((void *)&( policy_session->sessionAttributes))) = 0;
+		*((UINT8 *)((void *)&(policy_session->sessionAttributes))) = 0;
 		policy_session->sessionAttributes.continueSession = 1;
 	}
 
@@ -279,7 +286,7 @@ EFI_STATUS tpm2_write_nvindex(TPMI_RH_NV_INDEX nv_index,
 
 	ret = Tpm2FlushContext(session_handle);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"tpm2_write_nvindex - FlushContext failed");
+		efi_perror(ret, L"TPM2 write NV index - FlushContext failed");
 		return ret;
 	}
 
@@ -306,7 +313,7 @@ EFI_STATUS tpm2_write_lock_nvindex(TPMI_RH_NV_INDEX nv_index)
 
 	ret = Tpm2FlushContext(session_handle);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"tpm2_write_lock_nvindex - FlushContext failed");
+		efi_perror(ret, L"TPM2 write lock NV index - FlushContext failed");
 		return ret;
 	}
 
@@ -357,7 +364,7 @@ EFI_STATUS tpm2_read_nvindex(TPMI_RH_NV_INDEX nv_index,
 
 	ret = Tpm2FlushContext(session_handle);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"tpm2_read_nvindex - FlushContext failed");
+		efi_perror(ret, L"TPM2 read NV index - FlushContext failed");
 		return ret;
 	}
 
@@ -384,7 +391,7 @@ EFI_STATUS tpm2_read_lock_nvindex(TPMI_RH_NV_INDEX nv_index)
 
 	ret = Tpm2FlushContext(session_handle);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"tpm2_read_lock_nvindex - FlushContext failed");
+		efi_perror(ret, L"TPM2 read lock NV index - FlushContext failed");
 		return ret;
 	}
 
@@ -411,7 +418,7 @@ static EFI_STATUS tpm2_set_nvbits(TPMI_RH_NV_INDEX nv_index, UINT64 set_bits)
 
 	ret = Tpm2FlushContext(session_handle);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"tpm2_set_nvbits - FlushContext failed");
+		efi_perror(ret, L"TPM2 set NV bits - FlushContext failed");
 		return ret;
 	}
 
@@ -432,21 +439,21 @@ static EFI_STATUS check_provision_status(void)
 	attribute_matrix_t matrix, expected_table[MAX_NV_NUMBER];
 
 	memcpy(expected_table, config_table, sizeof(attribute_matrix_t) * MAX_NV_NUMBER);
-	for(index_offset = 0; index_offset < MAX_NV_NUMBER; index_offset ++) {
+	for (index_offset = 0; index_offset < MAX_NV_NUMBER; index_offset++) {
 		ret = Tpm2NvReadPublic(start_nv_index + index_offset, &NvPublic, &NvName);
-		if(EFI_ERROR(ret)) {
+		if (EFI_ERROR(ret)) {
 			error(L"Tpm2NvReadPublic TPM NV index %x ret: %d", start_nv_index + index_offset, ret);
 			return ret;
 		}
 		matrix.nv_index = NvPublic.nvPublic.nvIndex;
 		/* TPMA_NV_WRITTEN = 1, Index has been written.
-		TPMA_NV_WRITELOCKED =1, Index cannot be written.
-		Check these two additional attributes after provision. They are set by TPM.
-		*/
+		 * TPMA_NV_WRITELOCKED =1, Index cannot be written.
+		 * Check these two additional attributes after provision. They are set by TPM.
+		 */
 		expected_table[index_offset].attribute.TPMA_NV_WRITTEN = 1;
 		expected_table[index_offset].attribute.TPMA_NV_WRITELOCKED = 1;
 		matrix.attribute = NvPublic.nvPublic.attributes;
-		if(memcmp(&matrix, &(expected_table[index_offset]), sizeof(attribute_matrix_t)))
+		if (memcmp(&matrix, &(expected_table[index_offset]), sizeof(attribute_matrix_t)))
 			return EFI_DEVICE_ERROR;
 	}
 
@@ -499,13 +506,13 @@ EFI_STATUS tpm2_fuse_lock_owner(void)
 	*((UINT8 *)((void *)&session_data.sessionAttributes)) = 0;
 
 	ret = Tpm2GetRandom(DIGEST_SIZE, &owner_auth);
-	if(EFI_ERROR(ret)) {
+	if (EFI_ERROR(ret)) {
 		error(L"failed to get random: %d", ret);
 		goto out;
 	}
 
 	ret = Tpm2HierarchyChangeAuth(TPM_RH_OWNER, &session_data, &owner_auth);
-	if(EFI_ERROR(ret)) {
+	if (EFI_ERROR(ret)) {
 		error(L"failed to Tpm2HierarchyChangeAuth: %d", ret);
 		goto out;
 	}
@@ -565,8 +572,8 @@ EFI_STATUS tpm2_get_capability(
 		IN      TPM_CAP                   Capability,
 		IN      UINT32                    Property,
 		IN      UINT32                    PropertyCount,
-		OUT     TPMI_YES_NO               *MoreData,
-		OUT     TPMS_CAPABILITY_DATA      *CapabilityData
+		OUT     TPMI_YES_NO               * MoreData,
+		OUT     TPMS_CAPABILITY_DATA      * CapabilityData
 		)
 {
 	EFI_STATUS ret;
@@ -678,7 +685,7 @@ out:
 	return ret;
 }
 
-EFI_STATUS extend_trusty_seed_pcr_policy()
+EFI_STATUS extend_trusty_seed_pcr_policy(void)
 {
 	EFI_STATUS                ret;
 	TPML_DIGEST_VALUES        Digests;
@@ -689,8 +696,8 @@ EFI_STATUS extend_trusty_seed_pcr_policy()
 	Digests.digests[0].hashAlg = TPM_ALG_SHA256;
 	PcrHandle = PCR_7;
 
-	DigestSize = GetHashSizeFromAlgo (Digests.digests[0].hashAlg);
-	memset((UINT8*)&Digests.digests[0].digest, 0, DigestSize);
+	DigestSize = GetHashSizeFromAlgo(Digests.digests[0].hashAlg);
+	memset((UINT8 *)&Digests.digests[0].digest, 0, DigestSize);
 	ret =  Tpm2PcrExtend(PcrHandle, &Digests);
 	if (EFI_ERROR(ret)) {
 		error(L"Extend PCR fail");
@@ -725,9 +732,8 @@ EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE])
 	}
 
 	ret2 = extend_trusty_seed_pcr_policy();
-	if (EFI_ERROR(ret2)) {
+	if (EFI_ERROR(ret2))
 		error(L"Extend trusty seed pcr policy fail");
-	}
 
 	return EFI_SUCCESS;
 
