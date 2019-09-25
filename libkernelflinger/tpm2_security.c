@@ -430,19 +430,14 @@ static EFI_STATUS check_provision_status(void)
 	EFI_STATUS ret = EFI_SUCCESS;
 	TPM2B_NV_PUBLIC NvPublic;
 	TPM2B_NAME NvName;
-#ifdef BUILD_ANDROID_THINGS
-	TPMI_RH_NV_INDEX start_nv_index = NV_INDEX_AT_PERM_ATTR;
-#else
-	TPMI_RH_NV_INDEX start_nv_index = NV_INDEX_TRUSTYOS_SEED;
-#endif
-	UINT32 index_offset = 0;
 	attribute_matrix_t matrix, expected_table[MAX_NV_NUMBER];
+	UINT32 i;
 
 	memcpy(expected_table, config_table, sizeof(attribute_matrix_t) * MAX_NV_NUMBER);
-	for (index_offset = 0; index_offset < MAX_NV_NUMBER; index_offset++) {
-		ret = Tpm2NvReadPublic(start_nv_index + index_offset, &NvPublic, &NvName);
+	for (i = 0; i < MAX_NV_NUMBER; i++) {
+		ret = Tpm2NvReadPublic(config_table[i].nv_index, &NvPublic, &NvName);
 		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Tpm2NvReadPublic TPM NV index %x", start_nv_index + index_offset);
+			efi_perror(ret, L"Tpm2NvReadPublic TPM NV index %x", config_table[i].nv_index);
 			return ret;
 		}
 		matrix.nv_index = NvPublic.nvPublic.nvIndex;
@@ -450,10 +445,10 @@ static EFI_STATUS check_provision_status(void)
 		 * TPMA_NV_WRITELOCKED =1, Index cannot be written.
 		 * Check these two additional attributes after provision. They are set by TPM.
 		 */
-		expected_table[index_offset].attribute.TPMA_NV_WRITTEN = 1;
-		expected_table[index_offset].attribute.TPMA_NV_WRITELOCKED = 1;
+		expected_table[i].attribute.TPMA_NV_WRITTEN = 1;
+		expected_table[i].attribute.TPMA_NV_WRITELOCKED = 1;
 		matrix.attribute = NvPublic.nvPublic.attributes;
-		if (memcmp(&matrix, &(expected_table[index_offset]), sizeof(attribute_matrix_t)))
+		if (memcmp(&matrix, &(expected_table[i]), sizeof(attribute_matrix_t)))
 			return EFI_DEVICE_ERROR;
 	}
 
@@ -742,6 +737,43 @@ out:
 	return ret;
 }
 
+static EFI_STATUS tpm2_check_trusty_seed_index(void)
+{
+	EFI_STATUS ret;
+	TPM2B_NV_PUBLIC NvPublic;
+	TPM2B_NAME NvName;
+	UINT32 *attr;
+	UINT32 *config_attr;
+
+	ret = Tpm2NvReadPublic(NV_INDEX_TRUSTYOS_SEED, &NvPublic, &NvName);
+	if (EFI_ERROR(ret)) {
+		if (ret != EFI_NOT_FOUND) {
+			efi_perror(ret, L"Read trusty seed NV index failed");
+			return ret;
+		}
+
+		ret = tpm2_fuse_trusty_seed();
+		if (EFI_ERROR(ret))
+			efi_perror(ret, L"Failed to fuse trusty seed");
+
+		return ret;
+	}
+
+	/* After fuse, the TPM maybe add more attribute, so need to skip them */
+	NvPublic.nvPublic.attributes.TPMA_NV_WRITTEN = 0;
+	NvPublic.nvPublic.attributes.TPMA_NV_WRITELOCKED = 0;
+	attr = (UINT32 *)&NvPublic.nvPublic.attributes;
+	config_attr = (UINT32 *)&config_table[NV_INDEX_TRUSTYOS_SEED - config_table[0].nv_index].attribute;
+	if (NvPublic.nvPublic.dataSize != TRUSTY_SEED_SIZE || *attr != *config_attr) {
+		error(L"Find trusty seed NV index, but the data is wrong, data size: %d, attributes: 0x%lx, need: 0x%lx",
+				NvPublic.nvPublic.dataSize, *attr, *config_attr);
+		return EFI_COMPROMISED_DATA;
+	}
+
+	debug(L"Trusty seed already fused");
+	return EFI_SUCCESS;
+}
+
 #ifdef BUILD_ANDROID_THINGS
 EFI_STATUS tpm2_fuse_perm_attr(void *data, uint32_t size)
 {
@@ -810,37 +842,12 @@ EFI_STATUS tpm2_fuse_bootloader_policy(void *data, uint32_t size)
 EFI_STATUS tpm2_init(void)
 {
 	EFI_STATUS ret;
-	TPM2B_NV_PUBLIC NvPublic;
-	TPM2B_NAME NvName;
 
-	// Check the SEED nvindex
-	ret = Tpm2NvReadPublic(NV_INDEX_TRUSTYOS_SEED, &NvPublic, &NvName);
-	if (!EFI_ERROR(ret)) {
-		// Success
-		if (NvPublic.nvPublic.dataSize == TRUSTY_SEED_SIZE) {
-			debug(L"Trusty seed already fused");
-
-			tpm2_check_lockauth();
-
-			return EFI_SUCCESS;
-		}
-
-		// Find it, but the data is empty wrong.
-		error(L"Find trusty seed nv index, but the data is wrong");
-		return EFI_COMPROMISED_DATA;
-	}
-
-	if (ret != EFI_NOT_FOUND) {
-		efi_perror(ret, L"Read trusty seed index failed");
-		return ret;
-	}
-
-	// Can't find it, try to init it now
-	ret = tpm2_fuse_trusty_seed();
+	ret = tpm2_check_lockauth();
 	if (EFI_ERROR(ret))
-		efi_perror(ret, L"Failed to fuse trusty seed");
+		return ret;
 
-	return ret;
+	return tpm2_check_trusty_seed_index();
 }
 
 EFI_STATUS tpm2_end(void)
