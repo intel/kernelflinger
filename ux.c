@@ -51,9 +51,8 @@
 
 
 static const ui_textline_t red_state[] = {
-	{ &COLOR_LIGHTGRAY,	"Your device has failed verification.",	FALSE },
-	{ &COLOR_LIGHTGRAY,	"It is corrupt. It can't be trusted ",	FALSE },
-	{ &COLOR_LIGHTGRAY,	"and will not boot.",			FALSE },
+	{ &COLOR_LIGHTGRAY,	"No valid operating system could be",	FALSE },
+	{ &COLOR_LIGHTGRAY,	"found. The device will not boot.",	FALSE },
 	{ NULL, NULL, FALSE}
 };
 
@@ -66,8 +65,12 @@ static const ui_textline_t bad_recovery[] = {
 };
 
 static const ui_textline_t device_altered_unlocked[] = {
-	{ &COLOR_LIGHTGRAY, 	"Your device has been unlocked and",	FALSE },
-	{ &COLOR_LIGHTGRAY, 	"can't be trusted.",			FALSE },
+	{ &COLOR_LIGHTGRAY,	"The bootloader is unlocked and",	FALSE },
+	{ &COLOR_LIGHTGRAY,	"software integrity cannot be",		FALSE },
+	{ &COLOR_LIGHTGRAY,	"guaranteed. Any data stored on",	FALSE },
+	{ &COLOR_LIGHTGRAY,	"the device may be available to",	FALSE },
+	{ &COLOR_LIGHTGRAY,	"attackers. Do not store any",		FALSE },
+	{ &COLOR_LIGHTGRAY,	"sensitive data on the device.",	FALSE },
 	{ NULL, NULL, FALSE }
 };
 
