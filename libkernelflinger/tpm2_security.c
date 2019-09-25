@@ -453,6 +453,16 @@ static EFI_STATUS check_provision_status(void)
 	return EFI_SUCCESS;
 }
 
+EFI_STATUS tpm2_delete_index(UINT32 index)
+{
+	EFI_STATUS ret = Tpm2NvUndefineSpace(TPM_RH_OWNER, index, NULL);
+
+	if (EFI_ERROR(ret))
+		error(L"Delete TPM NV index failed, index: %x, ret: %d", index, ret);
+
+	return ret;
+}
+
 EFI_STATUS tpm2_fuse_provision_seed(void)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
@@ -550,16 +560,6 @@ EFI_STATUS tpm2_show_index(UINT32 index, uint8_t *out_buffer, UINTN out_buffer_s
 	return EFI_SUCCESS;
 }
 #endif // USER
-
-EFI_STATUS tpm2_delete_index(UINT32 index)
-{
-	EFI_STATUS ret = Tpm2NvUndefineSpace(TPM_RH_OWNER, index, NULL);
-
-	if (EFI_ERROR(ret))
-		error(L"Delete TPM NV index failed, index: %x, ret: %d", index, ret);
-
-	return ret;
-}
 
 EFI_STATUS tpm2_get_capability(
 		IN      TPM_CAP                   Capability,
