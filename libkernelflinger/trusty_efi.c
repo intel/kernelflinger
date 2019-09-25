@@ -366,7 +366,7 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
         tos_ret = call_entry(startup_info_v2);
 
         if (tos_ret) {
-                error(L"Load and start Trusty OS failed: 0x%x", tos_ret);
+                efi_perror(tos_ret, L"Load and start Trusty OS failed");
                 ret = EFI_INVALID_PARAMETER;
                 goto cleanup;
         }

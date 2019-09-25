@@ -126,7 +126,7 @@ static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
 	nonceCaller.size = DIGEST_SIZE;
 	ret = Tpm2GetRandom(DIGEST_SIZE, &nonceCaller);
 	if (EFI_ERROR(ret)) {
-		error(L"failed to get random: %d", ret);
+		efi_perror(ret, L"failed to get random");
 		return ret;
 	}
 
@@ -275,8 +275,8 @@ EFI_STATUS tpm2_write_nvindex(TPMI_RH_NV_INDEX nv_index,
 		ret = Tpm2NvWrite(nv_index, nv_index,
 			   &session_data, &nv_write_data, written_size + offset);
 		if (EFI_ERROR(ret)) {
-			error(L"Write TPM NV index failed, index: 0x%x, size: %d, written_size: %d, ret: %d",
-					nv_index, nv_write_data.size, written_size, ret);
+			efi_perror(ret, L"Write TPM NV index failed, index: 0x%x, size: %d, written_size: %d",
+					nv_index, nv_write_data.size, written_size);
 			break;
 		}
 		left_size -= cur_size;
@@ -442,7 +442,7 @@ static EFI_STATUS check_provision_status(void)
 	for (index_offset = 0; index_offset < MAX_NV_NUMBER; index_offset++) {
 		ret = Tpm2NvReadPublic(start_nv_index + index_offset, &NvPublic, &NvName);
 		if (EFI_ERROR(ret)) {
-			error(L"Tpm2NvReadPublic TPM NV index %x ret: %d", start_nv_index + index_offset, ret);
+			efi_perror(ret, L"Tpm2NvReadPublic TPM NV index %x", start_nv_index + index_offset);
 			return ret;
 		}
 		matrix.nv_index = NvPublic.nvPublic.nvIndex;
@@ -465,7 +465,7 @@ EFI_STATUS tpm2_delete_index(UINT32 index)
 	EFI_STATUS ret = Tpm2NvUndefineSpace(TPM_RH_OWNER, index, NULL);
 
 	if (EFI_ERROR(ret))
-		error(L"Delete TPM NV index failed, index: %x, ret: %d", index, ret);
+		efi_perror(ret, L"Delete TPM NV index failed, index: %x", index);
 
 	return ret;
 }
@@ -507,13 +507,13 @@ EFI_STATUS tpm2_fuse_lock_owner(void)
 
 	ret = Tpm2GetRandom(DIGEST_SIZE, &owner_auth);
 	if (EFI_ERROR(ret)) {
-		error(L"failed to get random: %d", ret);
+		efi_perror(ret, L"failed to get random");
 		goto out;
 	}
 
 	ret = Tpm2HierarchyChangeAuth(TPM_RH_OWNER, &session_data, &owner_auth);
 	if (EFI_ERROR(ret)) {
-		error(L"failed to Tpm2HierarchyChangeAuth: %d", ret);
+		efi_perror(ret, L"failed to Tpm2HierarchyChangeAuth");
 		goto out;
 	}
 
@@ -529,19 +529,19 @@ static EFI_STATUS create_index_and_write_lock(TPM_NV_INDEX nv_index, TPMA_NV att
 
 	ret = tpm2_create_nvindex(nv_index, attributes, data_size);
 	if (EFI_ERROR(ret)) {
-		error(L"NV Index failed to create, index: 0x%x, size: %d, ret: %d", nv_index, data_size, ret);
+		efi_perror(ret, L"NV Index failed to create, index: 0x%x, size: %d", nv_index, data_size);
 		return ret;
 	}
 
 	ret = tpm2_write_nvindex(nv_index, data_size, data, 0);
 	if (EFI_ERROR(ret)) {
-		error(L"Write to NV Index failed, index: 0x%x, size: %d, ret: %d", nv_index, data_size, ret);
+		efi_perror(ret, L"Write to NV Index failed, index: 0x%x, size: %d", nv_index, data_size);
 		return ret;
 	}
 
 	ret = tpm2_write_lock_nvindex(nv_index);
 	if (EFI_ERROR(ret))
-		error(L"Write lock to NV Index failed, index: 0x%x, ret: %d", nv_index, ret);
+		efi_perror(ret, L"Write lock to NV Index failed, index: 0x%x", nv_index);
 
 	return ret;
 }
@@ -555,7 +555,7 @@ EFI_STATUS tpm2_show_index(UINT32 index, uint8_t *out_buffer, UINTN out_buffer_s
 
 	ret = Tpm2NvReadPublic(index, &NvPublic, &NvName);
 	if (EFI_ERROR(ret)) {
-		error(L"Read TPM NV index %x ret: %d", index, ret);
+		efi_perror(ret, L"Read TPM NV index %x", index);
 		return ret;
 	}
 	efi_snprintf(out_buffer, out_buffer_size, (CHAR8 *)
