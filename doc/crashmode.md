@@ -122,6 +122,7 @@ Crashmode adb implementation is limited to the following commands:
 - shell help COMMAND: print the help for COMMAND
 - shell devmem ADDRESS [WIDTH [VALUE]]: read/write from physical address
 - shell lsacpi: list the ACPI tables
+- shell lspci: list the PCI devices
 - shell hexdump ADDRESS LENGTH: Hexdump a memory region
 - shell inb | inw | inl IOPORT: Perform a read operation on the given I/O port
 - shell outb | outw | outl IOPORT DATA: Perform a write operation on the given I/O port
@@ -238,6 +239,26 @@ MCFG  0x7AED6A80     60
 HPET  0x7AED6A40     56
 NHLT  0x7AED3AD0   1323
 TPM2  0x7AED6420     52
+```
+
+### shell lspci command
+
+The `shell lspci` lists all the PCI devices.
+
+```bash
+$ adb shell lspci
+00:00.0 Host bridge: 8086:5AF0 (rev 0B)
+00:00.1 Signal processing controller: 8086:5A8C (rev 0B)
+00:00.2 Non-Essential Instrumentation: 8086:5A8E (rev 0B)
+00:02.0 VGA compatible controller: 8086:5A84 (rev 0B)
+00:03.0 Multimedia controller: 8086:5A88 (rev 0B)
+00:0D.1 8086:5A94 (rev 0B)
+00:0D.2 Serial bus controllers: 8086:5A96 (rev 0B)
+00:0D.3 RAM memory: 8086:5AEC (rev 0B)
+00:0E.0 Audio device: 8086:5A98 (rev 0B)
+00:0F.0 Communication controller: 8086:5A9A (rev 0B)
+00:0F.1 Communication controller: 8086:5A9C (rev 0B)
+[...]
 ```
 
 ### shell hexdump command

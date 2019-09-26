@@ -24,6 +24,8 @@ LOCAL_SRC_FILES := \
 	lsacpi.c \
 	hexdump.c \
 	ioport.c \
-	lspartition.c
+	lspartition.c \
+	pci_class.c \
+	lspci.c
 
 include $(BUILD_EFI_STATIC_LIBRARY)
