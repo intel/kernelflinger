@@ -37,6 +37,8 @@
 
 EFI_STATUS ss_printf(const CHAR16 *fmt, ...);
 EFI_STATUS ss_read_number(const char *arg, const char *name, UINT64 *value);
+void ss_hexdump(unsigned char *buf, UINTN length,
+		EFI_PHYSICAL_ADDRESS address, BOOLEAN canonical);
 
 #ifndef __LP64__
 EFI_STATUS ss_pae_map(EFI_PHYSICAL_ADDRESS *address, UINT64 length);

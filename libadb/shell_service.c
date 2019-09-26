@@ -299,6 +299,62 @@ EFI_STATUS ss_read_number(const char *arg, const char *name, UINT64 *value)
 	return EFI_SUCCESS;
 }
 
+#define PRINT_SIZE (sizeof(UINT64) * 2)
+
+static CHAR16 *get_address_format(EFI_PHYSICAL_ADDRESS address)
+{
+	static CHAR16 fmt[8];
+	UINTN i;
+
+	for (i = 0; address != 0; i++)
+		address /= 16;
+
+	SPrint(fmt, sizeof(fmt), L"%%0%dllx", i);
+	return fmt;
+}
+
+void ss_hexdump(unsigned char *buf, UINTN length,
+		EFI_PHYSICAL_ADDRESS address, BOOLEAN canonical)
+{
+	CHAR16 *addr_fmt;
+	char ascii[PRINT_SIZE + 1] = { '\0' };
+	unsigned char *cur, *end;
+	UINTN col;
+
+	addr_fmt = get_address_format(address + length);
+	memset(ascii, '.', sizeof(ascii) - 1);
+	end = (char *)(UINTN)(buf + length);
+	for (col = 0, cur = (char *)(UINTN)buf;
+	     cur != end;
+	     address++, cur++, col = (col + 1) % PRINT_SIZE) {
+		if (col == 0)
+			ss_printf(addr_fmt, address);
+
+		ss_printf(L" %a%02x", col % sizeof(UINT64) ? "" : " ", *cur);
+
+		if (*cur >= ' ' && *cur <= '~')
+			ascii[col] = *cur;
+		else
+			ascii[col] = '.';
+
+		if (col == PRINT_SIZE - 1) {
+			if (canonical) {
+				ss_printf(L"  |%a|", ascii);
+				memset(ascii, '.', sizeof(ascii) - 1);
+			}
+			ss_printf(L"\n");
+		}
+	}
+
+	if (col != 0) {
+		for (; col < PRINT_SIZE; col++)
+			ss_printf(L" %a  ", col % sizeof(UINT64) ? "" : " ");
+		if (canonical)
+			ss_printf(L"  |%a|", ascii);
+		ss_printf(L"\n");
+	}
+}
+
 #ifndef __LP64__
 EFI_STATUS ss_pae_map(EFI_PHYSICAL_ADDRESS *address, UINT64 length)
 {

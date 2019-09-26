@@ -36,29 +36,11 @@
 
 #include "hexdump.h"
 
-#define PRINT_SIZE (sizeof(UINT64) * 2)
-
-static CHAR16 *get_address_format(EFI_PHYSICAL_ADDRESS address)
-{
-	static CHAR16 fmt[8];
-	UINTN i;
-
-	for (i = 0; address != 0; i++)
-		address /= 16;
-
-	SPrint(fmt, sizeof(fmt), L"%%0%dllx", i);
-	return fmt;
-}
-
 static EFI_STATUS hexdump_main(INTN argc, const char **argv)
 {
 	EFI_STATUS ret = EFI_INVALID_PARAMETER;
 	EFI_PHYSICAL_ADDRESS address, real;
 	UINT64 length;
-	UINTN col;
-	unsigned char *cur, *end;
-	char ascii[PRINT_SIZE + 1] = { '\0' };
-	CHAR16 *addr_fmt;
 
 	if (argc != 3)
 		return EFI_INVALID_PARAMETER;
@@ -80,33 +62,7 @@ static EFI_STATUS hexdump_main(INTN argc, const char **argv)
 	}
 #endif
 
-	addr_fmt = get_address_format(real + length);
-	memset(ascii, '.', sizeof(ascii) - 1);
-	end = (char *)(UINTN)(address + length);
-	for (col = 0, cur = (char *)(UINTN)address;
-	     cur != end ;
-	     real++, cur++, col = (col + 1) % PRINT_SIZE) {
-		if (col == 0)
-			ss_printf(addr_fmt, real);
-
-		ss_printf(L" %a%02x", col % sizeof(UINT64) ? "" : " ", *cur);
-
-		if (*cur >= ' ' && *cur <= '~')
-			ascii[col] = *cur;
-		else
-			ascii[col] = '.';
-
-		if (col == PRINT_SIZE - 1) {
-			ss_printf(L"  |%a|\n", ascii);
-			memset(ascii, '.', sizeof(ascii) - 1);
-		}
-	}
-
-	if (col != 0) {
-		for (; col < PRINT_SIZE; col++)
-			ss_printf(L" %a  ", col % sizeof(UINT64) ? "" : " ");
-		ss_printf(L"  |%a|\n", ascii);
-	}
+	ss_hexdump((unsigned char *)address, length, real, TRUE);
 
 #ifndef __LP64__
 	pae_exit();
