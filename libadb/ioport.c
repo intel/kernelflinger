@@ -52,13 +52,6 @@ static inline UINT16 inw(int port)
 	return val;
 }
 
-static inline UINT32 inl(int port)
-{
-	UINT32 val;
-	__asm__ __volatile__("inl %w1, %0" : "=a"(val) : "Nd"(port));
-	return val;
-}
-
 static inline void outb(UINT8 val, int port)
 {
 	__asm__ __volatile__("outb %b0, %w1" : : "a"(val), "Nd"(port));
@@ -67,11 +60,6 @@ static inline void outb(UINT8 val, int port)
 static inline void outw(UINT16 val, int port)
 {
 	__asm__ __volatile__("outw %w0, %w1" : : "a"(val), "Nd"(port));
-}
-
-static inline void outl(UINT32 val, int port)
-{
-	__asm__ __volatile__("outl %0, %w1" : : "a"(val), "Nd"(port));
 }
 
 static const CHAR16 *VALUE_FORMAT[] = {

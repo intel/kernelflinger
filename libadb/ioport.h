@@ -35,6 +35,19 @@
 
 #include "shell_service.h"
 
+static inline UINT32 inl(int port)
+{
+	UINT32 val;
+
+	__asm__ __volatile__("inl %w1, %0" : "=a"(val) : "Nd"(port));
+	return val;
+}
+
+static inline void outl(UINT32 val, int port)
+{
+	__asm__ __volatile__("outl %0, %w1" : : "a"(val), "Nd"(port));
+}
+
 extern shcmd_t inb_shcmd;
 extern shcmd_t inw_shcmd;
 extern shcmd_t inl_shcmd;
