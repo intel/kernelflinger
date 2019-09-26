@@ -77,6 +77,7 @@ union android_version {
      } __attribute__((packed)) split;
 };
 
+static struct rot_data_t rot_data;
 
 EFI_STATUS raw_pub_key_sha256(IN const UINT8 *pub_key,
             IN UINTN pub_key_len,
@@ -295,10 +296,9 @@ done:
 #endif  /* BOOTLOADER_POLICY */
 
 
-/* Initialize the struct rot_data for startup_information */
-EFI_STATUS get_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
-                        IN VBDATA *vb_data,
-                        OUT struct rot_data_t *rot_data)
+/* Update the struct rot_data for startup_information */
+EFI_STATUS update_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
+                        IN VBDATA *vb_data)
 {
         EFI_STATUS ret = EFI_SUCCESS;
         enum device_state state;
@@ -312,24 +312,24 @@ EFI_STATUS get_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
         boot_image_header = (struct boot_img_hdr *)bootimage;
 
         /* Initialize the rot data structure */
-        rot_data->version = ROT_DATA_STRUCT_VERSION2;
+        rot_data.version = ROT_DATA_STRUCT_VERSION2;
         state = get_current_state();
         switch (state) {
                 case UNLOCKED:
-                        rot_data->deviceLocked = 0;
+                        rot_data.deviceLocked = 0;
                         break;
                 case LOCKED:
-                        rot_data->deviceLocked = 1;
+                        rot_data.deviceLocked = 1;
                         break;
                 default:
                         debug(L"Unknown device state");
                         return EFI_UNSUPPORTED;
         }
-        rot_data->verifiedBootState = boot_state;
+        rot_data.verifiedBootState = boot_state;
         temp_version.value = boot_image_header->os_version;
-        rot_data->osVersion = (temp_version.split.version_A * 100 + temp_version.split.version_B) * 100 + temp_version.split.version_C;
-        rot_data->patchMonthYear = (temp_version.split.year + 2000) * 100 + temp_version.split.month;
-        rot_data->keySize = SHA256_DIGEST_LENGTH;
+        rot_data.osVersion = (temp_version.split.version_A * 100 + temp_version.split.version_B) * 100 + temp_version.split.version_C;
+        rot_data.patchMonthYear = (temp_version.split.year + 2000) * 100 + temp_version.split.month;
+        rot_data.keySize = SHA256_DIGEST_LENGTH;
 
         if (vb_data) {
                 ret = rot_pub_key_sha256(vb_data, &temp_hash);
@@ -337,30 +337,36 @@ EFI_STATUS get_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
                         efi_perror(ret, L"Failed to compute key hash");
                         return ret;
                 }
-                CopyMem(rot_data->keyHash256, temp_hash, rot_data->keySize);
+                CopyMem(rot_data.keyHash256, temp_hash, rot_data.keySize);
         } else {
-                memset(rot_data->keyHash256, 0, SHA256_DIGEST_LENGTH);
+                memset(rot_data.keyHash256, 0, SHA256_DIGEST_LENGTH);
         }
         return ret;
 }
 
-EFI_STATUS init_rot_data(UINT32 boot_state, OUT struct rot_data_t *rot_data)
+/* initialize the struct rot_data for startup_information */
+EFI_STATUS init_rot_data(UINT32 boot_state)
 {
     /* Initialize the rot data structure */
-    rot_data->version = ROT_DATA_STRUCT_VERSION2;
-    rot_data->deviceLocked = 1;
-    rot_data->verifiedBootState = boot_state;
+    rot_data.version = ROT_DATA_STRUCT_VERSION2;
+    rot_data.deviceLocked = 1;
+    rot_data.verifiedBootState = boot_state;
 
-    rot_data->osVersion = 0;
-    rot_data->patchMonthYear = 0;
-    rot_data->keySize = SHA256_DIGEST_LENGTH;
+    rot_data.osVersion = 0;
+    rot_data.patchMonthYear = 0;
+    rot_data.keySize = SHA256_DIGEST_LENGTH;
 
     /* TBD: keyHash should be the key which used to sign vbmeta.ias */
-    memset(rot_data->keyHash256, 0, SHA256_DIGEST_LENGTH);
+    memset(rot_data.keyHash256, 0, SHA256_DIGEST_LENGTH);
 
     return EFI_SUCCESS;
 }
 
+/* Return rot data instance pointer */
+struct rot_data_t* get_rot_data()
+{
+	return &rot_data;
+}
 
 /* vim: softtabstop=8:shiftwidth=8:expandtab
  */

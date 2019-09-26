@@ -187,7 +187,6 @@ EFI_STATUS start_systemd_boot(EFI_HANDLE image_handle)
 }
 
 #ifdef USE_TRUSTY
-struct rot_data_t g_rot_data = {0};
 EFI_STATUS load_file(EFI_HANDLE image_handle, CHAR16 *file, OUT VOID **image)
 {
 	EFI_STATUS ret;
@@ -261,7 +260,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		boot_state = BOOT_STATE_YELLOW;
 		show_disable_secure_boot_warnning();
 	}
-	init_rot_data(boot_state, &g_rot_data);
+	init_rot_data(boot_state);
 
 	debug(L"teedata region init...\n");
 	ret = rpmb_storage_init();

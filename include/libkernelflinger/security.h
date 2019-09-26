@@ -92,16 +92,18 @@ struct rot_data_t{
         UINT8  keyHash256[SHA256_DIGEST_LENGTH];
 } ;
 
-/* Initialize the struct rot_data for startup_information */
-EFI_STATUS get_rot_data(
+/* Update the struct rot_data for startup_information */
+EFI_STATUS update_rot_data(
         IN VOID *bootimage,
         IN UINT8 boot_state,
-        IN VBDATA *vb_data,
-        OUT struct rot_data_t *rot_data);
+        IN VBDATA *vb_data);
 
+/* Initialize the struct rot_data for startup_information */
 EFI_STATUS init_rot_data(
-        UINT32 boot_state,
-        OUT struct rot_data_t *rot_data);
+        UINT32 boot_state);
+
+/* Return rot data instance pointer*/
+struct rot_data_t *get_rot_data();
 
 EFI_STATUS raw_pub_key_sha256(
         IN const UINT8 *pub_key,

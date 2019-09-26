@@ -76,7 +76,6 @@ typedef union {
 
 #define MAX_CMD_BUF 0x1000
 static CHAR8 cmd_buf[MAX_CMD_BUF];
-struct rot_data_t g_rot_data = {0};
 
 #ifdef CRASHMODE_USE_ADB
 static EFI_STATUS enter_crashmode(enum boot_target *target)
@@ -258,7 +257,7 @@ static EFI_STATUS process_bootimage(void *bootimage, UINTN imagesize)
 
 	set_boottime_stamp(TM_VERIFY_BOOT_DONE);
 #ifdef USE_TRUSTY
-	ret = get_rot_data(bootimage, boot_state, slot_data, &g_rot_data);
+	ret = update_rot_data(bootimage, boot_state, slot_data);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to init rot params");
 		goto fail;
@@ -848,7 +847,7 @@ EFI_STATUS avb_boot_android(enum boot_target boot_target, CHAR8 *abl_cmd_line)
 		goto fail;
 	}
 
-	ret = get_rot_data(bootimage, boot_state, slot_data, &g_rot_data);
+	ret = update_rot_data(bootimage, boot_state, slot_data);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to init rot params");
 		goto fail;
@@ -1038,8 +1037,7 @@ EFI_STATUS boot_android(enum boot_target boot_target, CHAR8 *abl_cmd_line)
 	}
 	boot_state = validate_bootimage(boot_target, bootimage, &verifier_cert);
 
-	/*  keymaster interface always use the g_rot_data as its input param */
-	ret = get_rot_data(bootimage, boot_state, verifier_cert, &g_rot_data);
+	ret = update_rot_data(bootimage, boot_state, verifier_cert);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to init rot params");
 		goto exit;

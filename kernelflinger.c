@@ -125,10 +125,6 @@ static const CHAR16 __attribute__((used)) magic[] = L"### kernelflinger ###";
  */
 #define WATCHDOG_DELAY       (10 * 60)
 
-#ifdef USE_TRUSTY
-struct rot_data_t g_rot_data = {0};
-#endif
-
 static EFI_HANDLE g_disk_device;
 static EFI_LOADED_IMAGE *g_loaded_image;
 static VOID die(VOID) __attribute__ ((noreturn));
@@ -1047,7 +1043,7 @@ static EFI_STATUS load_image(VOID *bootimage, UINT8 boot_state,
 			die();
 		}
 
-		ret = get_rot_data(bootimage, boot_state, vb_data, &g_rot_data);
+		ret = update_rot_data(bootimage, boot_state, vb_data);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Unable to get the root of trust data for trusty");
 			die();
