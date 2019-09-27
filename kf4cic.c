@@ -45,10 +45,11 @@
 #include "rpmb_storage.h"
 #endif
 
-#ifdef USE_TRUSTY
 #include "security.h"
-#include "trusty_interface.h"
 #include "security_interface.h"
+
+#ifdef USE_TRUSTY
+#include "trusty_interface.h"
 #endif
 
 #define SYSTEMD_BOOT_FILE L"loaderx64.efi"
