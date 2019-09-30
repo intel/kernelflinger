@@ -127,7 +127,8 @@ EFI_STATUS set_slot_fallback(BOOLEAN enabled);
 enum device_state {
 	UNKNOWN_STATE = -1,
 	LOCKED = 0,
-	UNLOCKED = 1
+	UNLOCKED = 1,
+	JUST_INIT = 2
 };
 const char *get_current_state_string(void);
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL *get_current_state_color();

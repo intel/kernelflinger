@@ -254,32 +254,67 @@ static void set_provisioning_mode(BOOLEAN provisioning)
 	current_state = provisioning ? UNLOCKED : LOCKED;
 }
 
-enum device_state get_current_state()
+static EFI_STATUS read_efi_device_state(UINT8 *state)
 {
-	UINT8 *stored_state;
-	UINTN dsize;
 	EFI_STATUS ret;
+	UINT8 *stored_state = NULL;
+	UINTN dsize;
 	UINT32 flags;
-	BOOLEAN enduser;
-#ifdef SECURE_STORAGE_RPMB
-	UINT8 val;
-#endif
 
-	if (current_state == UNKNOWN_STATE) {
+	ret = get_efi_variable((EFI_GUID *)&fastboot_guid, OEM_LOCK,
+				       &dsize, (void **)&stored_state, &flags);
+	if (EFI_ERROR(ret)) {
+		// Read failed
+		if (ret == EFI_NOT_FOUND) {
+			debug(L"Can not find device state EFI variable");
+			*state = JUST_INIT;
+			ret = EFI_SUCCESS;
+		} else
+			efi_perror(ret, L"Failed to read device state from EFI variable");
+		return ret;
+	}
+	if (!dsize || !stored_state) {
+		error(L"Read device state from EFI variable, but data size is 0");
+		ret = EFI_COMPROMISED_DATA;
+		goto out;
+	}
+	if (flags & EFI_VARIABLE_RUNTIME_ACCESS) {
+		error(L"Read device state from EFI variable, but it can be accessed in runtime!");
+		ret = EFI_SECURITY_VIOLATION;
+		goto out;
+	}
+
+	*state = *stored_state;
+	debug(L"Success read device state from EFI variable, state: %d", *state);
+out:
+	if (stored_state)
+		FreePool(stored_state);
+
+	return ret;
+}
+
+static EFI_STATUS write_efi_device_state(UINT8 state)
+{
+	return set_efi_variable(&fastboot_guid, OEM_LOCK, sizeof(state), &state, TRUE, FALSE);
+}
+
+enum device_state get_current_state(void)
+{
+	EFI_STATUS ret;
+	UINT8 stored_state;
+	BOOLEAN enduser;
+
+	if (current_state == UNKNOWN_STATE || current_state == JUST_INIT) {
 		if (is_live_boot()) {
 			current_state = UNLOCKED;
 			goto exit;
 		}
 #ifdef SECURE_STORAGE_RPMB
-		ret = read_rpmb_device_state(&val);
-		stored_state = &val;
-		dsize = 1;
-		flags = EFI_VARIABLE_NON_VOLATILE;
+		ret = read_rpmb_device_state(&stored_state);
 #else
-		ret = get_efi_variable((EFI_GUID *)&fastboot_guid, OEM_LOCK,
-				       &dsize, (void **)&stored_state, &flags);
+		ret = read_efi_device_state(&stored_state);
 #endif
-		if ((ret == EFI_NOT_FOUND) && !is_boot_device_virtual()) {
+		if (stored_state == JUST_INIT && !is_boot_device_virtual()) {
 			set_provisioning_mode(FALSE);
 
 			ret = life_cycle_is_enduser(&enduser);
@@ -306,22 +341,18 @@ enum device_state get_current_state()
 		}
 
 		/* If we can't read the state, be safe and assume locked. */
-		if (EFI_ERROR(ret) || !dsize) {
+		if (EFI_ERROR(ret)) {
 			current_state = LOCKED;
-			error(L"Couldn't read %s, assuming locked", OEM_LOCK);
+			efi_perror(ret, L"Read device state failed, assuming locked");
 			goto exit;
-		} else if (flags & EFI_VARIABLE_RUNTIME_ACCESS) {
-			current_state = LOCKED;
-			error(L"%s has RUNTIME_ACCESS flag, assuming locked", OEM_LOCK);
-		} else {
-			if (stored_state[0] & OEM_LOCK_UNLOCKED)
-				current_state = UNLOCKED;
-			else
-				current_state = LOCKED;
-
-			debug(L"device state %d", current_state);
 		}
-		FreePool(stored_state);
+
+		if (stored_state == UNLOCKED)
+			current_state = UNLOCKED;
+		else
+			current_state = LOCKED;
+
+		debug(L"device state %d", current_state);
 	}
 
 exit:
@@ -348,9 +379,7 @@ EFI_STATUS set_current_state(enum device_state state)
 #ifdef SECURE_STORAGE_RPMB
 		ret = write_rpmb_device_state(stored_state);
 #else
-		ret = set_efi_variable(&fastboot_guid, OEM_LOCK,
-						  sizeof(stored_state), &stored_state,
-						  TRUE, FALSE);
+		ret = write_efi_device_state(stored_state);
 #endif
 	}
 	if (EFI_ERROR(ret)) {
