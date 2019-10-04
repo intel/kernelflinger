@@ -207,7 +207,7 @@ Record Table) region prepended by `BERR` magic.
 
 ### shell devmem Command
 
-The `shell devmem ADDRESS [WIDTH [VALUE]]` command perform a
+The `shell devmem ADDRESS [WIDTH [VALUE]]` command performs a
 read/write access from physical `ADDRESS`.  It is designed to allow
 read/write accessed to and from registers.
 
@@ -224,7 +224,7 @@ $ adb shell devmem 0x7aed6c60
 
 ### shell lsacpi command
 
-The `shell lsacpi` list all the ACPI table, their location in RAM and
+The `shell lsacpi` lists all the ACPI table, their location in RAM and
 their size.
 
 ```bash
