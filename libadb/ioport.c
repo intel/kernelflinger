@@ -34,9 +34,9 @@
 
 #include "ioport.h"
 
-static const char * const usage = "Usage:\n\
-  inb|inw|inl IOPORT\n\
-  outb|outw|outl IOPORT DATA";
+static const char * const usage = "Usage:\n"
+	"  inb|inw|inl IOPORT\n"
+	"  outb|outw|outl IOPORT DATA";
 
 static inline UINT8 inb(int port)
 {

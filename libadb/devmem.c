@@ -112,12 +112,12 @@ static EFI_STATUS devmem_main(INTN argc, const char **argv)
 shcmd_t devmem_shcmd = {
 	.name = "devmem",
 	.summary = "Read/write from physical address",
-	.help = "Usage: devmem ADDRESS [WIDTH [VALUE]]\n\
-\n\
-Read/write from physical address\n\
-\n\
-    ADDRESS  Address to act upon\n\
-    WIDTH    Width (8/16/...)\n\
-    VALUE    Data to be written",
+	.help = "Usage: devmem ADDRESS [WIDTH [VALUE]]\n"
+	"\n"
+	"Read/write from physical address\n"
+	"\n"
+	"    ADDRESS  Address to act upon\n"
+	"    WIDTH    Width (8/16/...)\n"
+	"    VALUE    Data to be written",
 	.main = devmem_main
 };
