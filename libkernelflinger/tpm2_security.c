@@ -433,7 +433,7 @@ static EFI_STATUS check_provision_status(void)
 	attribute_matrix_t matrix, expected_table[MAX_NV_NUMBER];
 	UINT32 i;
 
-	memcpy(expected_table, config_table, sizeof(attribute_matrix_t) * MAX_NV_NUMBER);
+	memcpy(expected_table, config_table, sizeof(expected_table));
 	for (i = 0; i < MAX_NV_NUMBER; i++) {
 		ret = Tpm2NvReadPublic(config_table[i].nv_index, &NvPublic, &NvName);
 		if (EFI_ERROR(ret)) {
@@ -445,11 +445,16 @@ static EFI_STATUS check_provision_status(void)
 		 * TPMA_NV_WRITELOCKED =1, Index cannot be written.
 		 * Check these two additional attributes after provision. They are set by TPM.
 		 */
-		expected_table[i].attribute.TPMA_NV_WRITTEN = 1;
-		expected_table[i].attribute.TPMA_NV_WRITELOCKED = 1;
+		NvPublic.nvPublic.attributes.TPMA_NV_WRITTEN = 0;
+		NvPublic.nvPublic.attributes.TPMA_NV_WRITELOCKED = 0;
 		matrix.attribute = NvPublic.nvPublic.attributes;
-		if (memcmp(&matrix, &(expected_table[i]), sizeof(attribute_matrix_t)))
+		if (memcmp(&matrix, &expected_table[i], sizeof(matrix))) {
+			error(L"NV index 0x%08x, attribute: 0x%lx, expected: 0x%lx",
+					matrix.nv_index,
+					*(UINT32 *)&matrix.attribute,
+					*(UINT32 *)&expected_table[i].attribute);
 			return EFI_DEVICE_ERROR;
+		}
 	}
 
 	return EFI_SUCCESS;
