@@ -32,6 +32,7 @@
 
 #include <efi.h>
 #include <lib.h>
+#include <byteswap.h>
 #include "Tcg2Protocol.h"
 #include "Tpm2CommandLib.h"
 #include "tpm2_security.h"
@@ -106,6 +107,61 @@ static const attribute_matrix_t config_table[MAX_NV_NUMBER] = {
 		}
 	}
 };
+
+
+static EFI_STATUS tpm2_get_capability(
+		IN      TPM_CAP                   Capability,
+		IN      UINT32                    Property,
+		IN      UINT32                    PropertyCount,
+		OUT     TPMI_YES_NO               * MoreData,
+		OUT     TPMS_CAPABILITY_DATA      * CapabilityData
+		)
+{
+	EFI_STATUS ret;
+	UINT32 i;
+	TPML_TAGGED_TPM_PROPERTY *prop;
+
+	ret = Tpm2GetCapability(Capability, Property, PropertyCount, MoreData, CapabilityData);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Call Tpm2GetCapability failed");
+		return ret;
+	}
+	prop = &CapabilityData->data.tpmProperties;
+	debug(L"TPM2 capability: 0x%08x, data.tpmProperties.count: %d, more data: %d",
+			bswap_32(CapabilityData->capability), bswap_32(prop->count), *MoreData);
+	for (i = 0; i < bswap_32(prop->count); i++)
+		debug(L"prop %d: property: 0x%08x, value: 0x%08x", i,
+				bswap_32(prop->tpmProperty[i].property),
+				bswap_32(prop->tpmProperty[i].value));
+
+	return ret;
+}
+
+static EFI_STATUS tpm2_get_cap_permanent(TPMA_PERMANENT *per)
+{
+	EFI_STATUS ret;
+	TPMI_YES_NO more_data;
+	TPMS_CAPABILITY_DATA cap_data;
+	UINT32 value;
+	TPML_TAGGED_TPM_PROPERTY *prop;
+
+	ret = tpm2_get_capability(TPM_CAP_TPM_PROPERTIES, TPM_PT_PERMANENT, 1, &more_data, &cap_data);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Get TPM cap permanent failed");
+		return ret;
+	}
+	prop = &cap_data.data.tpmProperties;
+	if (bswap_32(prop->count) <= 0) {
+		error(L"Get empty TPM capability data of TPM_PT_PERMANENT");
+		ret = EFI_NOT_FOUND;
+		return ret;
+	}
+
+	value = bswap_32(prop->tpmProperty[0].value);
+	*per = *(TPMA_PERMANENT *)&value;
+
+	return ret;
+}
 
 static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
 				TPM2B_DIGEST *policy_digest,
@@ -493,6 +549,18 @@ EFI_STATUS tpm2_fuse_lock_owner(void)
 	TPMS_AUTH_COMMAND session_data = {0};
 	TPM2B_AUTH owner_auth;
 	EFI_STATUS ret;
+	TPMA_PERMANENT per;
+
+	ret = tpm2_get_cap_permanent(&per);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Check TPM cap permanent for lock owner failed");
+		return ret;
+	}
+
+	if (per.ownerAuthSet) {
+		error(L"TPM owner is already locked");
+		return EFI_SUCCESS;
+	}
 
 	/* Check the provison and secure boot status */
 	if (!is_platform_secure_boot_enabled() || EFI_ERROR(check_provision_status())) {
@@ -516,6 +584,20 @@ EFI_STATUS tpm2_fuse_lock_owner(void)
 		efi_perror(ret, L"failed to Tpm2HierarchyChangeAuth");
 		goto out;
 	}
+
+	ret = tpm2_get_cap_permanent(&per);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Check TPM cap permanent after take owner failed");
+		goto out;
+	}
+
+	if (!per.ownerAuthSet) {
+		error(L"Try to lock TPM owner, success call Tpm2HierarchyChangeAuth, but ownerAuthSet is not set!");
+		ret = EFI_SECURITY_VIOLATION;
+		goto out;
+	}
+
+	debug(L"Success lock TPM owner");
 
 out:
 	memset(owner_auth.buffer, 0, DIGEST_SIZE);
@@ -568,75 +650,23 @@ EFI_STATUS tpm2_show_index(UINT32 index, uint8_t *out_buffer, UINTN out_buffer_s
 }
 #endif // USER
 
-EFI_STATUS tpm2_get_capability(
-		IN      TPM_CAP                   Capability,
-		IN      UINT32                    Property,
-		IN      UINT32                    PropertyCount,
-		OUT     TPMI_YES_NO               * MoreData,
-		OUT     TPMS_CAPABILITY_DATA      * CapabilityData
-		)
+static EFI_STATUS tpm2_check_cap_permanent(void)
 {
 	EFI_STATUS ret;
-	UINT32 i;
-
-	ret = Tpm2GetCapability(Capability, Property, PropertyCount, MoreData, CapabilityData);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Call Tpm2GetCapability failed");
-		return ret;
-	}
-	debug(L"TPM2 capability: 0x%08x, data.tpmProperties.count: %d, more data: %d",
-			SwapBytes32(CapabilityData->capability), SwapBytes32(CapabilityData->data.tpmProperties.count), *MoreData);
-	for (i = 0; i < SwapBytes32(CapabilityData->data.tpmProperties.count); i++) {
-		debug(L"prop %d: property: 0x%08x, value: 0x%08x", i,
-				SwapBytes32(CapabilityData->data.tpmProperties.tpmProperty[i].property),
-				SwapBytes32(CapabilityData->data.tpmProperties.tpmProperty[i].value));
-	}
-
-	return ret;
-}
-
-EFI_STATUS tpm2_get_lockauth(BOOLEAN *lockauth)
-{
-	EFI_STATUS ret;
-	TPMI_YES_NO more_data;
-	TPMS_CAPABILITY_DATA cap_data;
-	UINT32 value;
 	TPMA_PERMANENT per;
 
-	ret = tpm2_get_capability(TPM_CAP_TPM_PROPERTIES, TPM_PT_PERMANENT, 1, &more_data, &cap_data);
-	if (EFI_ERROR(ret))
-		return ret;
-
-	if (SwapBytes32(cap_data.data.tpmProperties.count) <= 0) {
-		// Can't read the data
-		error(L"Get empty TPM capability data of TPM_PT_PERMANENT");
-		ret = EFI_NOT_FOUND;
-		return ret;
-	}
-
-	value = SwapBytes32(cap_data.data.tpmProperties.tpmProperty[0].value);
-	per = *(TPMA_PERMANENT *)&value;
-
-	*lockauth = per.lockoutAuthSet;
-
-	return ret;
-}
-
-EFI_STATUS tpm2_check_lockauth(void)
-{
-	EFI_STATUS ret;
-	BOOLEAN lockauth;
-	// Verify the LOCKOUT_AUTH
-	ret = tpm2_get_lockauth(&lockauth);
+	ret = tpm2_get_cap_permanent(&per);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Check TPM LOCKOUT_AUTH failed");
+		efi_perror(ret, L"Check TPM cap permanent for lockoutAuthSet failed");
 		return ret;
 	}
 
-	if (!lockauth) {
-		// Show a warning if not set
+	/* Verify the LOCKOUT_AUTH */
+	if (!per.lockoutAuthSet)
 		error(L"TPM LOCKOUT_AUTH is not set, set it can get higher security");
-	}
+
+	if (!per.ownerAuthSet)
+		info(L"TPM owner is not taken! Take it after verification to get higher security!");
 
 	return ret;
 }
@@ -676,7 +706,6 @@ EFI_STATUS tpm2_fuse_trusty_seed(void)
 		goto out;
 	}
 
-	tpm2_check_lockauth();
 out:
 	// Always clear the memory
 	// Maybe be optimized?
@@ -848,7 +877,7 @@ EFI_STATUS tpm2_init(void)
 {
 	EFI_STATUS ret;
 
-	ret = tpm2_check_lockauth();
+	ret = tpm2_check_cap_permanent();
 	if (EFI_ERROR(ret))
 		return ret;
 
