@@ -564,7 +564,7 @@ static EFI_STATUS setup_ramdisk(UINT8 *bootimage)
 EFI_STATUS setup_acpi_table(VOID *bootimage,
                             __attribute__((__unused__)) enum boot_target target)
 {
-        EFI_STATUS ret;
+        EFI_STATUS ret = EFI_SUCCESS;
         struct boot_img_hdr *aosp_header;
 
         debug(L"Setup acpi table");
@@ -585,11 +585,9 @@ EFI_STATUS setup_acpi_table(VOID *bootimage,
         ret = install_firststage_mount_aml(target);
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"Install builtin early mount table failed");
-                return ret;
         }
 #endif
-        debug(L"Acpi table not setup");
-        return EFI_SUCCESS;
+        return ret;
 }
 
 
