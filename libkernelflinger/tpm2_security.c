@@ -39,19 +39,14 @@
 #include "Tpm2Help.h"
 #include "security.h"
 
-#ifdef BUILD_ANDROID_THINGS
-#define MAX_NV_NUMBER		4
-#define NV_INDEX_AT_PERM_ATTR		0x01500046
-#else
-#define MAX_NV_NUMBER		3
-#endif
-#define NV_INDEX_TRUSTYOS_SEED		0x01500047
-#define NV_INDEX_VBMETA_KEY_HASH	0x01500048
-#define NV_INDEX_FB_BL_POLICY		0x01500049
+enum NV_INDEX {
+	NV_INDEX_TRUSTYOS_SEED = 0x01500047
+};
 
 #define PCR_7   7
 
-#define Set_PcrSelect_Bit(pcrSelection, pcr) ((pcrSelection).pcrSelect[((pcr)/8)] |= (1 << ((pcr) % 8)))
+#define Set_PcrSelect_Bit(pcrSelection, pcr) \
+		((pcrSelection).pcrSelect[((pcr)/8)] |= (1 << ((pcr) % 8)))
 
 #define DIGEST_SIZE 32
 
@@ -60,16 +55,7 @@ typedef struct {
 	TPMA_NV attribute;
 } attribute_matrix_t;
 
-static const attribute_matrix_t config_table[MAX_NV_NUMBER] = {
-#ifdef BUILD_ANDROID_THINGS
-	{NV_INDEX_AT_PERM_ATTR,
-		{.TPMA_NV_POLICYREAD = 1,
-		.TPMA_NV_POLICYWRITE = 1,
-		.TPMA_NV_WRITEALL = 1,
-		.TPMA_NV_READ_STCLEAR = 1,
-		}
-	},
-#endif
+static const attribute_matrix_t config_table[] = {
 	{NV_INDEX_TRUSTYOS_SEED,
 		/* The Index data may be read if the authPolicy is satisfied. */
 		{.TPMA_NV_POLICYREAD = 1,
@@ -91,23 +77,10 @@ static const attribute_matrix_t config_table[MAX_NV_NUMBER] = {
 		 */
 		.TPMA_NV_READ_STCLEAR = 1,
 		}
-	},
-	{NV_INDEX_VBMETA_KEY_HASH,
-		{.TPMA_NV_POLICYREAD = 1,
-		.TPMA_NV_POLICYWRITE = 1,
-		.TPMA_NV_WRITEALL = 1,
-		.TPMA_NV_READ_STCLEAR = 1,
-		}
-	},
-	{NV_INDEX_FB_BL_POLICY,
-		{.TPMA_NV_POLICYREAD = 1,
-		.TPMA_NV_POLICYWRITE = 1,
-		.TPMA_NV_WRITEALL = 1,
-		.TPMA_NV_BITS = 1
-		}
 	}
 };
 
+#define MAX_NV_NUMBER		ARRAY_SIZE(config_table)
 
 static EFI_STATUS tpm2_get_capability(
 		IN      TPM_CAP                   Capability,
@@ -809,68 +782,26 @@ static EFI_STATUS tpm2_check_trusty_seed_index(void)
 }
 
 #ifdef BUILD_ANDROID_THINGS
-EFI_STATUS tpm2_fuse_perm_attr(void *data, uint32_t size)
+EFI_STATUS tpm2_fuse_perm_attr(
+		__attribute__((__unused__)) void *data,
+		__attribute__((__unused__)) uint32_t size)
 {
-	EFI_STATUS ret;
-	UINT16 config_index;
-
-	if (size > 2048) {
-		error(L"AT Permanent attributes exceeds maximum size");
-		return EFI_INVALID_PARAMETER;
-	}
-
-	config_index = NV_INDEX_AT_PERM_ATTR - config_table[0].nv_index;
-	ret = create_index_and_write_lock(NV_INDEX_AT_PERM_ATTR, config_table[config_index].attribute, size, data);
-	if (EFI_ERROR(ret))
-		return ret;
-
-	debug(L"AT Permanent attributes fused succesfully");
-	return ret;
+	return EFI_UNSUPPORTED;
 }
 #endif
 
-EFI_STATUS tpm2_fuse_vbmeta_key_hash(void *data, uint32_t size)
+EFI_STATUS tpm2_fuse_vbmeta_key_hash(
+		__attribute__((__unused__)) void *data,
+		__attribute__((__unused__)) uint32_t size)
 {
-	EFI_STATUS ret;
-	UINT16 config_index;
-
-	if (size != 32) {
-		error(L"VBMETA Key Hash size is not 32 bytes");
-		return EFI_INVALID_PARAMETER;
-	}
-
-	config_index = NV_INDEX_VBMETA_KEY_HASH - config_table[0].nv_index;
-	ret = create_index_and_write_lock(NV_INDEX_VBMETA_KEY_HASH, config_table[config_index].attribute, size, data);
-	if (EFI_ERROR(ret))
-		return ret;
-
-	debug(L"VBMETA Key Hash created successfully");
-	return ret;
+	return EFI_UNSUPPORTED;
 }
 
-EFI_STATUS tpm2_fuse_bootloader_policy(void *data, uint32_t size)
+EFI_STATUS tpm2_fuse_bootloader_policy(
+		__attribute__((__unused__)) void *data,
+		__attribute__((__unused__)) uint32_t size)
 {
-	EFI_STATUS ret;
-	UINT16 config_index;
-	UINT64 set_bits = 0;
-
-	if (size != sizeof(set_bits)) {
-		error(L"bootloader policy size is not 8 bytes");
-		return EFI_INVALID_PARAMETER;
-	}
-
-	config_index = NV_INDEX_FB_BL_POLICY - config_table[0].nv_index;
-	ret = tpm2_create_nvindex(NV_INDEX_FB_BL_POLICY, config_table[config_index].attribute, sizeof(set_bits));
-	if (EFI_ERROR(ret) && (ret != EFI_ALREADY_STARTED))
-		return ret;
-
-	memcpy(&set_bits, data, size);
-	ret = tpm2_set_nvbits(NV_INDEX_FB_BL_POLICY, set_bits);
-	if (EFI_ERROR(ret))
-		return ret;
-
-	debug(L"Bootloader policy created successfully");
-	return ret;
+	return EFI_UNSUPPORTED;
 }
 
 EFI_STATUS tpm2_init(void)
