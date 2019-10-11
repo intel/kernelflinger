@@ -40,8 +40,11 @@
 #include "security.h"
 
 enum NV_INDEX {
-	NV_INDEX_TRUSTYOS_SEED = 0x01500047
+	NV_INDEX_TRUSTYOS_SEED = 0x01500047,
+	NV_INDEX_BOOTLOADER
 };
+
+#define MAX_NV_NUMBER		ARRAY_SIZE(config_table)
 
 #define PCR_7   7
 
@@ -77,10 +80,26 @@ static const attribute_matrix_t config_table[] = {
 		 */
 		.TPMA_NV_READ_STCLEAR = 1,
 		}
+	},
+	{NV_INDEX_BOOTLOADER,
+		{.TPMA_NV_POLICYREAD = 1,
+		.TPMA_NV_POLICYWRITE = 1,
+		.TPMA_NV_WRITE_STCLEAR = 1,
+		.TPMA_NV_READ_STCLEAR = 1,
+		}
 	}
 };
 
-#define MAX_NV_NUMBER		ARRAY_SIZE(config_table)
+#define NV_INDEX_BOOTLOADER_STRUCT_VER	1
+/* Since can't create new NV index after lock owner, so alloc more space for future usage */
+#define NV_INDEX_BOOTLOADER_SIZE	512
+typedef struct {
+	UINT8	struct_ver;  /* the version of this struct */
+	UINT8	lock_state;
+	UINT8	reserved[6];  /* keep 8 bytes align */
+	uint64_t rollback_index[8];  /* AVB max rollback index slot is 32, now we support 8 for TPM */
+} tpm2_bootloader_t;
+
 
 static EFI_STATUS tpm2_get_capability(
 		IN      TPM_CAP                   Capability,
@@ -414,7 +433,7 @@ EFI_STATUS tpm2_read_lock_nvindex(TPMI_RH_NV_INDEX nv_index)
 
 	ret = Tpm2NvReadLock(nv_index, nv_index, &session_data);
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Tpm2NvReadLock failed");
+		efi_perror(ret, L"Tpm2NvReadLock nv_index 0x%x failed", nv_index);
 		return ret;
 	}
 
@@ -804,6 +823,105 @@ EFI_STATUS tpm2_fuse_bootloader_policy(
 	return EFI_UNSUPPORTED;
 }
 
+static EFI_STATUS tpm2_fuse_bootloader(void)
+{
+	EFI_STATUS ret;
+	UINT16 config_index;
+	BYTE data[NV_INDEX_BOOTLOADER_SIZE] = {0};
+	BYTE data_read[sizeof(data)];
+	UINT16 data_read_size = sizeof(data);
+	tpm2_bootloader_t *bootloader = (tpm2_bootloader_t *)data;
+
+	config_index = NV_INDEX_BOOTLOADER - config_table[0].nv_index;
+	ret = tpm2_create_nvindex(NV_INDEX_BOOTLOADER, config_table[config_index].attribute, sizeof(data));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to create bootloader NV index");
+		return ret;
+	}
+
+	bootloader->struct_ver = NV_INDEX_BOOTLOADER_STRUCT_VER;
+	/* Set to unlock in a device just create the NV index. */
+	bootloader->lock_state = UNLOCKED;
+
+	ret = tpm2_write_nvindex(NV_INDEX_BOOTLOADER, sizeof(data), data, 0);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Write bootloader NV index failed");
+		return ret;
+	}
+
+	/* Read the data again to verify it */
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_read_size, data_read, 0);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Read bootloader NV index back failed just after write it");
+		return ret;
+	}
+
+	if (memcmp(data, data_read, sizeof(data))) {
+		error(L"Security error! Read bootloader NV index back but verify failed!");
+		return EFI_SECURITY_VIOLATION;
+	}
+
+	debug(L"Success create and write bootloader NV index");
+	return EFI_SUCCESS;
+}
+
+static EFI_STATUS tpm2_check_bootloader_index(void)
+{
+	EFI_STATUS ret;
+	TPM2B_NV_PUBLIC NvPublic;
+	TPM2B_NAME NvName;
+	UINT8 struct_ver;
+	UINT16 data_size = sizeof(struct_ver);
+	UINT32 *attr;
+	UINT32 *config_attr;
+
+	ret = Tpm2NvReadPublic(NV_INDEX_BOOTLOADER, &NvPublic, &NvName);
+	if (EFI_ERROR(ret)) {
+		if (ret != EFI_NOT_FOUND) {
+			efi_perror(ret, L"Read bootloader NV index failed");
+			return ret;
+		}
+
+		ret = tpm2_fuse_bootloader();
+		if (EFI_ERROR(ret))
+			efi_perror(ret, L"Failed to fuse bootloader NV index");
+
+		return ret;
+	}
+
+	/* After fuse, the TPM maybe add more attribute, so need to skip them */
+	NvPublic.nvPublic.attributes.TPMA_NV_WRITTEN = 0;
+	NvPublic.nvPublic.attributes.TPMA_NV_WRITELOCKED = 0;
+	attr = (UINT32 *)&NvPublic.nvPublic.attributes;
+	config_attr = (UINT32 *)&config_table[NV_INDEX_BOOTLOADER - config_table[0].nv_index].attribute;
+	if (NvPublic.nvPublic.dataSize < sizeof(tpm2_bootloader_t) || *attr != *config_attr) {
+		error(L"Find bootloader NV index, but the data is wrong, data size: %d, attributes: 0x%lx, need: 0x%lx",
+				NvPublic.nvPublic.dataSize, *attr, *config_attr);
+		return EFI_COMPROMISED_DATA;
+	}
+
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_size,
+			(BYTE *)&struct_ver,
+			offsetof(tpm2_bootloader_t, struct_ver));
+	if (EFI_ERROR(ret) || data_size != sizeof(struct_ver)) {
+		efi_perror(ret, L"Read bootloader NV index for struct version failed, read size: %d", data_size);
+		return ret;
+	}
+
+	if (struct_ver > NV_INDEX_BOOTLOADER_STRUCT_VER)
+		warning(L"Bootloader NV index is fused with new struct version %d, are you running old software?", struct_ver);
+	else if (struct_ver < NV_INDEX_BOOTLOADER_STRUCT_VER)
+		warning(L"Bootloader NV index is fused with old struct version %d, are you running in old device?", struct_ver);
+	else {
+		if (NvPublic.nvPublic.dataSize != NV_INDEX_BOOTLOADER_SIZE) {
+			error(L"Find bootloader NV index, but the NV index size is %d", NvPublic.nvPublic.dataSize);
+			return EFI_COMPROMISED_DATA;
+		}
+		debug(L"Bootloader NV index already fused");
+	}
+	return EFI_SUCCESS;
+}
+
 EFI_STATUS tpm2_init(void)
 {
 	EFI_STATUS ret;
@@ -812,13 +930,19 @@ EFI_STATUS tpm2_init(void)
 	if (EFI_ERROR(ret))
 		return ret;
 
+	ret = tpm2_check_bootloader_index();
+	if (EFI_ERROR(ret))
+		return ret;
+
 	return tpm2_check_trusty_seed_index();
 }
 
 EFI_STATUS tpm2_end(void)
 {
-	// Maybe set read lock again
+	/* Maybe set read/write lock again */
 	tpm2_read_lock_nvindex(NV_INDEX_TRUSTYOS_SEED);
+	tpm2_read_lock_nvindex(NV_INDEX_BOOTLOADER);
+	tpm2_write_lock_nvindex(NV_INDEX_BOOTLOADER);
 
 	return EFI_SUCCESS;
 }
