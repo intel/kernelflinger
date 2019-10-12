@@ -325,7 +325,8 @@ EFI_STATUS tpm2_write_nvindex(TPMI_RH_NV_INDEX nv_index,
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Write TPM NV index failed, index: 0x%x, size: %d, written_size: %d",
 					nv_index, nv_write_data.size, written_size);
-			break;
+			memset(&nv_write_data, 0, sizeof(nv_write_data));
+			return ret;
 		}
 		left_size -= cur_size;
 		written_size += cur_size;
