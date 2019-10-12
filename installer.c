@@ -48,6 +48,16 @@
 #include "text_parser.h"
 #include "android.h"
 #include "slot.h"
+#include "security.h"
+#include "security_interface.h"
+#include "security_efi.h"
+#ifdef RPMB_STORAGE
+#include "rpmb.h"
+#include "rpmb_storage.h"
+#endif
+#ifdef USE_TPM
+#include "tpm2_security.h"
+#endif
 
 static BOOLEAN last_cmd_succeeded;
 static fastboot_handle fastboot_flash_cmd;
@@ -1094,12 +1104,44 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	if (!include_self)
 		set_exclude_device(loaded_img->DeviceHandle);
 
+#ifdef USE_TPM
+	if (!is_live_boot() && is_platform_secure_boot_enabled()) {
+		ret = tpm2_init();
+		if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
+			efi_perror(ret, L"Failed to init TPM, exit");
+			goto exit;
+		}
+	}
+#endif  /* USE_TPM */
+
+	ret = set_device_security_info(NULL);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to init security info, exit");
+		goto exit;
+	}
+
+#ifdef RPMB_STORAGE
+	ret = rpmb_storage_init();
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to init RPMB, exit");
+		goto exit;
+	}
+#endif  /* RPMB_STORAGE */
+
 	/* Initialize slot management. */
 	ret = slot_init();
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Slot management initialization failed");
 		goto exit;
 	}
+
+#ifdef RPMB_STORAGE
+	ret = rpmb_key_init();
+	if (EFI_ERROR(ret)) {
+		error(L"RPMB key init failure for osloader");
+		goto exit;
+	}
+#endif  /* RPMB_STORAGE */
 
 	/* Run the fastboot library. */
 	ret = fastboot_start(&bootimage, &efiimage, &imagesize, &target);
