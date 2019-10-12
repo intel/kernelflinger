@@ -922,6 +922,89 @@ static EFI_STATUS tpm2_check_bootloader_index(void)
 	return EFI_SUCCESS;
 }
 
+EFI_STATUS read_device_state_tpm2(UINT8 *state)
+{
+	EFI_STATUS ret;
+	UINT16 data_size = sizeof(UINT8);
+
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_size, (BYTE *)state,
+			offsetof(tpm2_bootloader_t, lock_state));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Read device state from TPM failed");
+		return ret;
+	}
+
+	if (data_size != sizeof(UINT8)) {
+		error(L"Read device state from TPM, but data size is wrong: %d", data_size);
+		return EFI_COMPROMISED_DATA;
+	}
+
+	debug(L"Read device state from TPM success, state: %d", *state);
+	return ret;
+}
+
+EFI_STATUS write_device_state_tpm2(UINT8 state)
+{
+	EFI_STATUS ret;
+
+	ret = tpm2_write_nvindex(NV_INDEX_BOOTLOADER, sizeof(UINT8), (BYTE *)&state,
+			offsetof(tpm2_bootloader_t, lock_state));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Write device state %d to TPM failed", state);
+		return ret;
+	}
+
+	debug(L"Write device state %d to TPM success", state);
+	return ret;
+}
+
+EFI_STATUS read_rollback_index_tpm2(size_t rollback_index_slot, uint64_t *out_rollback_index)
+{
+	EFI_STATUS ret;
+	UINT16 data_size = sizeof(uint64_t);
+
+	if (rollback_index_slot >= ARRAY_SIZE(((tpm2_bootloader_t *)0)->rollback_index)) {
+		error(L"The rollback index slot is too large to write into TPM: %d", rollback_index_slot);
+		return EFI_INVALID_PARAMETER;
+	}
+
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_size, (BYTE *)out_rollback_index,
+			rollback_index_slot * sizeof(uint64_t) + offsetof(tpm2_bootloader_t, rollback_index));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Read rollback index from TPM failed, slot: %d", rollback_index_slot);
+		return ret;
+	}
+
+	if (data_size != sizeof(uint64_t)) {
+		error(L"Read rollback index from TPM, but data size is wrong: %d", data_size);
+		return EFI_COMPROMISED_DATA;
+	}
+
+	debug(L"Read rollback index from TPM success, slot: %d, index: 0x%llx", rollback_index_slot, *out_rollback_index);
+	return ret;
+}
+
+EFI_STATUS write_rollback_index_tpm2(size_t rollback_index_slot, uint64_t rollback_index)
+{
+	EFI_STATUS ret;
+
+	if (rollback_index_slot >= ARRAY_SIZE(((tpm2_bootloader_t *)0)->rollback_index)) {
+		error(L"The rollback index slot is too large to write into TPM: %d", rollback_index_slot);
+		return EFI_INVALID_PARAMETER;
+	}
+
+	ret = tpm2_write_nvindex(NV_INDEX_BOOTLOADER, sizeof(uint64_t), (BYTE *)&rollback_index,
+			rollback_index_slot * sizeof(uint64_t) + offsetof(tpm2_bootloader_t, rollback_index));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Write rollback index to TPM failed, slot: %d, index: 0x%llx",
+				rollback_index_slot, rollback_index);
+		return ret;
+	}
+
+	debug(L"Write rollback index to TPM success, slot: %d, index: 0x%llx", rollback_index_slot, rollback_index);
+	return ret;
+}
+
 EFI_STATUS tpm2_init(void)
 {
 	EFI_STATUS ret;
