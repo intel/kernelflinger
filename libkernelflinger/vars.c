@@ -1106,7 +1106,9 @@ EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback
 
 	return ret;
 }
+#endif /* defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB) */
 
+#ifdef USE_AVB
 EFI_STATUS set_efi_loaded_slot(UINT8 slot)
 {
 	return set_efi_variable(&fastboot_guid, LOADED_SLOT,
@@ -1150,4 +1152,4 @@ EFI_STATUS get_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS *error)
 	return EFI_SUCCESS;
 }
 
-#endif // defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
+#endif /* USE_AVB */
