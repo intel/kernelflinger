@@ -289,12 +289,18 @@ LOCAL_STATIC_LIBRARIES := \
 	$(SHARED_STATIC_LIBRARIES) \
 	libtransport-$(TARGET_BUILD_VARIANT) \
 	libfastboot-for-installer-$(TARGET_BUILD_VARIANT)
+
+ifeq ($(TARGET_USE_TPM),true)
+	SHARED_STATIC_LIBRARIES += libedk2_tpm
+endif
+
 LOCAL_CFLAGS := $(SHARED_CFLAGS)
 LOCAL_SRC_FILES := installer.c
 LOCAL_MODULE_STEM := installer
 LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,libfastboot) \
-	$(addprefix $(LOCAL_PATH)/,libsslsupport)
+	$(addprefix $(LOCAL_PATH)/,libsslsupport) \
+	$(addprefix $(LOCAL_PATH)/,libkernelflinger)
 
 kfins_intermediates := $(call intermediates-dir-for,EFI,kernelflingerins)
 
