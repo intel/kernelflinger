@@ -40,8 +40,12 @@
 #include "version.h"
 #include "life_cycle.h"
 #include "storage.h"
+#include "security.h"
 #ifdef RPMB_STORAGE
 #include "rpmb_storage.h"
+#endif
+#ifdef USE_TPM
+#include "tpm2_security.h"
 #endif
 
 #define OFF_MODE_CHARGE		L"off-mode-charge"
@@ -282,7 +286,7 @@ static EFI_STATUS write_device_state_efi(UINT8 state)
 
 enum device_state get_current_state(void)
 {
-	EFI_STATUS ret;
+	EFI_STATUS ret = EFI_SUCCESS;
 	UINT8 stored_state;
 	BOOLEAN enduser;
 
@@ -293,16 +297,21 @@ enum device_state get_current_state(void)
 		}
 #ifdef SECURE_STORAGE_RPMB
 		ret = read_rpmb_device_state(&stored_state);
-#else
-		ret = read_device_state_efi(&stored_state);
-#endif
+#else  /* SECURE_STORAGE_RPMB */
+#ifdef USE_TPM
+		if (!is_platform_secure_boot_enabled() ||
+				(ret = read_device_state_tpm2(&stored_state)) == EFI_NOT_FOUND)
+#endif /* USE_TPM */
+			ret = read_device_state_efi(&stored_state);
+#endif  /* SECURE_STORAGE_RPMB */
+
 		if (ret == EFI_NOT_FOUND && !is_boot_device_virtual()) {
 			set_provisioning_mode(FALSE);
 
 			ret = life_cycle_is_enduser(&enduser);
 			if (EFI_ERROR(ret)) {
 				if (ret == EFI_NOT_FOUND) {
-					debug(L"OEMLock not set, device is in provisioning mode");
+					debug(L"Life Cycle is not supported, device is in provisioning mode");
 					set_provisioning_mode(TRUE);
 				}
 				goto exit;
@@ -360,12 +369,16 @@ EFI_STATUS set_current_state(enum device_state state)
 	if (!is_live_boot()) {
 #ifdef SECURE_STORAGE_RPMB
 		ret = write_rpmb_device_state(stored_state);
-#else
-		ret = write_device_state_efi(stored_state);
-#endif
+#else /* SECURE_STORAGE_RPMB */
+#ifdef USE_TPM
+		if (!is_platform_secure_boot_enabled() ||
+				(ret = write_device_state_tpm2(stored_state)) == EFI_NOT_FOUND)
+#endif /* USE_TPM */
+			ret = write_device_state_efi(stored_state);
+#endif /* SECURE_STORAGE_RPMB */
 	}
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to set %s variable", OEM_LOCK);
+		efi_perror(ret, L"Failed to set device state to %d", stored_state);
 		return ret;
 	}
 
@@ -964,6 +977,7 @@ EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback
 
 	return ret;
 }
+#endif /* defined(SECURE_STORAGE_EFIVAR) */
 
 EFI_STATUS set_efi_loaded_slot(UINT8 slot)
 {
@@ -1007,5 +1021,3 @@ EFI_STATUS get_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS *error)
 	FreePool(data);
 	return EFI_SUCCESS;
 }
-
-#endif //SECURE_STORAGE_EFIVAR

@@ -209,22 +209,27 @@ EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
 	}
 
 #ifdef USE_TPM
-	if (!is_live_boot()) {
-		ret = tpm2_read_trusty_seed(seed);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Failed to read trusty seed from TPM");
-			return ret;
-		}
-		debug(L"Success read seed from TPM");
-		*num_seeds = 1;
-		tmp = (seed_info_t *)seed_list;
-		tmp->svn = BOOTLOADER_SEED_MAX_ENTRIES - 1;
-		memcpy(tmp->seed, seed, TRUSTY_SEED_SIZE);  // Note: TRUSTY_SEED_SIZE = 32, but SECURITY_EFI_TRUSTY_SEED_LEN = 64
-		memset(seed, 0, sizeof(seed));
+	if (is_live_boot() || !is_platform_secure_boot_enabled())
+		return EFI_SUCCESS;
+
+	ret = tpm2_read_trusty_seed(seed);
+	if (EFI_ERROR(ret)) {
+		if (ret == EFI_NOT_FOUND)
+			return EFI_SUCCESS;
+
+		efi_perror(ret, L"Failed to read trusty seed from TPM");
+		return ret;
 	}
+
+	debug(L"Success read seed from TPM");
+	*num_seeds = 1;
+	tmp = (seed_info_t *)seed_list;
+	tmp->svn = BOOTLOADER_SEED_MAX_ENTRIES - 1;
+	memcpy(tmp->seed, seed, TRUSTY_SEED_SIZE);
+	memset(seed, 0, sizeof(seed));
 #endif
 
-	return ret;
+	return EFI_SUCCESS;
 }
 
 EFI_STATUS get_attkb_key(OUT VOID * key)

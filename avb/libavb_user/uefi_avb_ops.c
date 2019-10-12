@@ -30,8 +30,12 @@
 #include "gpt.h"
 #include "lib.h"
 #include "log.h"
+#include "security.h"
 #ifdef RPMB_STORAGE
 #include "rpmb_storage.h"
+#endif
+#ifdef USE_TPM
+#include "tpm2_security.h"
 #endif
 
 extern char _binary_avb_pk_start;
@@ -239,7 +243,11 @@ static AvbIOResult read_rollback_index(__attribute__((unused)) AvbOps* ops,
     ret = EFI_NOT_FOUND;
   else {
 #if defined(SECURE_STORAGE_EFIVAR)
-    ret = read_efi_rollback_index(rollback_index_slot, out_rollback_index);
+#ifdef USE_TPM
+    if (!is_platform_secure_boot_enabled() ||
+        (ret = read_rollback_index_tpm2(rollback_index_slot, out_rollback_index)) == EFI_NOT_FOUND)
+#endif // USE_TPM
+      ret = read_efi_rollback_index(rollback_index_slot, out_rollback_index);
 #elif defined(SECURE_STORAGE_RPMB)
     ret = read_rpmb_rollback_index(rollback_index_slot, out_rollback_index);
 #else
@@ -271,7 +279,11 @@ static AvbIOResult write_rollback_index(__attribute__((unused)) AvbOps* ops,
     ret = EFI_SUCCESS;
   else {
 #if defined(SECURE_STORAGE_EFIVAR)
-    ret = write_efi_rollback_index(rollback_index_slot, rollback_index);
+#ifdef USE_TPM
+    if (!is_platform_secure_boot_enabled() ||
+        (ret = write_rollback_index_tpm2(rollback_index_slot, rollback_index)) == EFI_NOT_FOUND)
+#endif // USE_TPM
+      ret = write_efi_rollback_index(rollback_index_slot, rollback_index);
 #elif defined(SECURE_STORAGE_RPMB)
     ret = write_rpmb_rollback_index(rollback_index_slot, rollback_index);
 #endif
