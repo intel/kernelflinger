@@ -133,7 +133,7 @@ CHAR16 *absolute_path(EFI_HANDLE image_handle, CHAR16 *file)
 
 	len = StrLen(base_path);
 	if (len > 4) {
-		if (StriCmp(base_path + len - 4, L".EFI") == 0) {
+		if (StrcaseCmp(base_path + len - 4, L".EFI") == 0) {
 			UINTN i = len - 4;
 
 			while (i > 0 && base_path[i] != L'\\')
