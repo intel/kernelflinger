@@ -543,6 +543,7 @@ EFI_STATUS tpm2_fuse_lock_owner(void)
 	TPM2B_AUTH owner_auth;
 	EFI_STATUS ret;
 	TPMA_PERMANENT per;
+	UINT8 state;
 
 	ret = tpm2_get_cap_permanent(&per);
 	if (EFI_ERROR(ret)) {
@@ -559,6 +560,13 @@ EFI_STATUS tpm2_fuse_lock_owner(void)
 	if (!is_platform_secure_boot_enabled() || EFI_ERROR(check_provision_status())) {
 		error(L"Provision is not completed or secure boot is not enabled, DO NOT LOCK OWNER");
 		return EFI_DEVICE_ERROR;
+	}
+
+	/* Check can read the bootloader NV index */
+	ret = read_device_state_tpm2(&state);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Read device state failed, should not lock the owner!");
+		return ret;
 	}
 
 	session_data.sessionHandle = TPM_RS_PW;
