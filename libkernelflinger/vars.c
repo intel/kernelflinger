@@ -169,12 +169,12 @@ exit:
 }
 
 EFI_STATUS set_boolean_var(const EFI_GUID *guid, CHAR16 *varname,
-			   bool_value_t *cache, BOOLEAN enabled)
+			   bool_value_t *cache, BOOLEAN enabled, BOOLEAN runtime)
 {
 	CHAR8 *val = (CHAR8 *)(enabled ? "1" : "0");
 	EFI_STATUS ret;
 
-	ret = set_efi_variable(guid, varname, 2, val, TRUE, FALSE);
+	ret = set_efi_variable(guid, varname, 2, val, TRUE, runtime);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to set %s variable", varname);
 		return ret;
@@ -194,8 +194,9 @@ BOOLEAN get_off_mode_charge(void)
 
 EFI_STATUS set_off_mode_charge(BOOLEAN enabled)
 {
+	//set "runtime" as true, in case SAndroid 10 userspace fastboot HAL need to read it
 	return set_boolean_var(&fastboot_guid, OFF_MODE_CHARGE,
-			       &off_mode_charge, enabled);
+			       &off_mode_charge, enabled, TRUE);
 }
 
 BOOLEAN get_crash_event_menu(void)
@@ -207,7 +208,7 @@ BOOLEAN get_crash_event_menu(void)
 EFI_STATUS set_crash_event_menu(BOOLEAN enabled)
 {
 	return set_boolean_var(&fastboot_guid, CRASH_EVENT_MENU,
-			       &crash_event_menu, enabled);
+			       &crash_event_menu, enabled, FALSE);
 }
 
 BOOLEAN get_display_splash(void) {
@@ -224,7 +225,7 @@ BOOLEAN get_oemvars_update(void)
 EFI_STATUS set_oemvars_update(BOOLEAN enabled)
 {
 	return set_boolean_var(&fastboot_guid, UPDATE_OEMVARS,
-			       &update_oemvars, enabled);
+			       &update_oemvars, enabled, FALSE);
 }
 
 BOOLEAN get_slot_fallback(void)
@@ -241,7 +242,7 @@ EFI_STATUS set_slot_fallback(BOOLEAN enabled)
 {
 #ifndef USER
 	return set_boolean_var(&fastboot_guid, SLOT_FALLBACK,
-			       &slot_fallback, enabled);
+			       &slot_fallback, enabled, FALSE);
 #else
 	(void)enabled;	/* Unused parameter.  */
 	return EFI_UNSUPPORTED;
