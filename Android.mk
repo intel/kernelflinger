@@ -588,7 +588,10 @@ LOCAL_C_INCLUDES += $(addprefix $(LOCAL_PATH)/,avb)
 ifeq ($(TARGET_USE_TRUSTY),true)
     LOCAL_STATIC_LIBRARIES += libqltipc-$(TARGET_BUILD_VARIANT)
 endif
-LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
+
+ifeq ($(BOARD_AVB_ENABLE),true)
+    LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
+endif
 
 keys4cic_intermediates := $(call intermediates-dir-for,EFI,keys)
 
