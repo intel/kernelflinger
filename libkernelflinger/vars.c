@@ -609,11 +609,17 @@ static void CDD_clean_string(char *buf)
 	}
 }
 
+static BOOLEAN valid_dmidata(char *data)
+{
+	return dmidata && dmidata != SMBIOS_UNDEFINED &&
+			*dmidata && !(dmidata[0] == ' ' && dmidata[1] != '\0');
+}
+
 #define SMBIOS_TO_BUFFER(buffer, type, field) do { \
 	if (!buffer[0]) { \
 		UINTN bufsz = sizeof(buffer); \
 		char *dmidata = SMBIOS_GET_STRING(type, field); \
-		if (dmidata && dmidata != SMBIOS_UNDEFINED) { \
+		if (valid_dmidata(dmidata)) \
 			strncpy((CHAR8 *)buffer, (CHAR8 *)dmidata, bufsz); \
 			buffer[bufsz - 1] = '\0'; \
 		} \
