@@ -18,7 +18,7 @@
 #define _ANDROID_VB2_H_
 
 #include "libavb/libavb.h"
-#include "libavb/uefi_avb_ops.h"
+#include "libavb_user/uefi_avb_ops.h"
 #include "libavb_ab/libavb_ab.h"
 
 typedef AvbSlotVerifyData VBDATA;

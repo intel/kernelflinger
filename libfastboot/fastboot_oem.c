@@ -52,7 +52,7 @@
 #include "text_parser.h"
 #ifdef USE_AVB
 #include "libavb/libavb.h"
-#include "libavb/uefi_avb_ops.h"
+#include "libavb_user/uefi_avb_ops.h"
 #endif
 #ifdef USE_TPM
 #include "tpm2_security.h"

@@ -31,7 +31,7 @@
 #include <stdint.h>
 #include <immintrin.h>
 
-#include "avb_sha.h"
+#include "libavb/avb_sha.h"
 
 #define SHA256_BLOCK_SIZE       64
 #define UNPACK32(x, str)                 \
@@ -340,5 +340,3 @@ uint8_t* avb_sha256_final(AvbSHA256Ctx* ctx)
 
         return ctx->buf;
 }
-
-

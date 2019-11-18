@@ -38,7 +38,7 @@
 #include <slot.h>
 #include <endian.h>
 #include <libavb_ab.h>
-#include <uefi_avb_ops.h>
+#include <libavb_user/uefi_avb_ops.h>
 
 /* Constants.  */
 const CHAR16 *SLOT_STORAGE_PART = MISC_LABEL;

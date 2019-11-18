@@ -107,11 +107,11 @@ LOCAL_SRC_FILES := \
     libavb/avb_rsa.c \
     libavb/avb_sha512.c \
     libavb/avb_slot_verify.c \
-    libavb/uefi_avb_sysdeps.c \
-    libavb/uefi_avb_ops.c \
-    libavb/uefi_avb_util.c \
     libavb/avb_util.c \
     libavb/avb_vbmeta_image.c \
+    libavb_user/uefi_avb_sysdeps.c \
+    libavb_user/uefi_avb_ops.c \
+    libavb_user/uefi_avb_util.c \
     libavb_ab/avb_ab_flow.c
 
 ifeq ($(BUILD_ANDROID_THINGS),true)
@@ -121,7 +121,7 @@ endif
 
 ifeq ($(KERNELFLINGER_USE_IPP_SHA256),true)
 LOCAL_SRC_FILES += \
-    libavb/avb_sha256_ipps.c
+    libavb_user/avb_sha256_ipps.c
 else
 LOCAL_SRC_FILES += \
     libavb/avb_sha256.c

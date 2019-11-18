@@ -31,6 +31,7 @@
 #include "uefi_avb_util.h"
 #include "lib.h"
 #include "log.h"
+#include "ui.h"
 
 int avb_memcmp(const void* src1, const void* src2, size_t n) {
   return (int)CompareMem((VOID*)src1, (VOID*)src2, (UINTN)n);
@@ -92,12 +93,14 @@ void avb_print_ui(const char* message) {
 void avb_printv_ui(const char* message, ...) {
   va_list ap;
 
-  va_start(ap, message);
-  do {
-    avb_print_ui(message);
-    message = va_arg(ap, const char*);
-  } while (message != NULL);
-  va_end(ap);
+  if (ui_is_ready()) {
+    va_start(ap, message);
+    do {
+      avb_print_ui(message);
+      message = va_arg(ap, const char*);
+    } while (message != NULL);
+    va_end(ap);
+  }
 }
 #endif
 

@@ -104,7 +104,12 @@ void avb_print_ui(const char* message);
  * NUL-terminated UTF-8 string and NULL should be the last argument.
  */
 void avb_printv_ui(const char* message, ...) AVB_ATTR_SENTINEL;
-#endif
+#else
+
+#define avb_print_ui(...) { }
+#define avb_printv_ui(...) { }
+
+#endif // USE_UI
 
 /* Allocates |size| bytes. Returns NULL if no memory is available,
  * otherwise a pointer to the allocated memory.

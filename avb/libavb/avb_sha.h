@@ -47,8 +47,8 @@ extern "C" {
 /* Block size in bytes of a SHA-512 digest. */
 #define AVB_SHA512_BLOCK_SIZE 128
 
-/* Data structure used for SHA-256. */
-#ifdef USE_IPP_SHA256
+/* Data structure used for SHA-256. Set 16 bytes aligned in order to compatible
+  to IPP for better performance  */
 typedef struct __attribute__((aligned (16))){
   uint32_t h[8];
   uint64_t tot_len;
@@ -56,15 +56,6 @@ typedef struct __attribute__((aligned (16))){
   uint8_t block[2 * AVB_SHA256_BLOCK_SIZE];
   uint8_t buf[AVB_SHA256_DIGEST_SIZE]; /* Used for storing the final digest. */
 } AvbSHA256Ctx;
-#else
-typedef struct {
-  uint32_t h[8];
-  uint64_t tot_len;
-  size_t len;
-  uint8_t block[2 * AVB_SHA256_BLOCK_SIZE];
-  uint8_t buf[AVB_SHA256_DIGEST_SIZE]; /* Used for storing the final digest. */
-} AvbSHA256Ctx;
-#endif
 
 /* Data structure used for SHA-512. */
 typedef struct {

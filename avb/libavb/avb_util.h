@@ -102,7 +102,6 @@ extern "C" {
 #define avb_debugv(message, ...)
 #endif
 
-#ifdef USE_UI
 /* Prints out a message. This is typically used if a runtime-error
  * occurs.
  */
@@ -114,9 +113,7 @@ extern "C" {
                ": ERROR: ",             \
                message,                 \
                NULL);                   \
-    if (ui_is_ready()) {                \
       avb_printv_ui(message, NULL);     \
-    }                                   \
   } while (0)
 #define avb_errorv(message, ...)        \
   do {                                  \
@@ -126,61 +123,7 @@ extern "C" {
                ": ERROR: ",             \
                message,                 \
                ##__VA_ARGS__);          \
-    if (ui_is_ready()) {                \
       avb_printv_ui(message,            \
-               ##__VA_ARGS__);          \
-    }                                   \
-  } while (0)
-
-/* Prints out a message and calls avb_abort().
- */
-#define avb_fatal(message)              \
-  do {                                  \
-    avb_printv(avb_basename(__FILE__),  \
-               ":",                     \
-               AVB_TO_STRING(__LINE__), \
-               ": FATAL: ",             \
-               message,                 \
-               NULL);                   \
-    if (ui_is_ready()) {                \
-      avb_printv_ui(message, NULL);     \
-    }                                   \
-    avb_abort();                        \
-  } while (0)
-#define avb_fatalv(message, ...)        \
-  do {                                  \
-    avb_printv(avb_basename(__FILE__),  \
-               ":",                     \
-               AVB_TO_STRING(__LINE__), \
-               ": FATAL: ",             \
-               message,                 \
-               ##__VA_ARGS__);          \
-    if (ui_is_ready()) {                \
-      avb_printv_ui(message,            \
-               ##__VA_ARGS__);          \
-    }                                   \
-    avb_abort();                        \
-  } while (0)
-#else
-/* Prints out a message. This is typically used if a runtime-error
- * occurs.
- */
-#define avb_error(message)              \
-  do {                                  \
-    avb_printv(avb_basename(__FILE__),  \
-               ":",                     \
-               AVB_TO_STRING(__LINE__), \
-               ": ERROR: ",             \
-               message,                 \
-               NULL);                   \
-  } while (0)
-#define avb_errorv(message, ...)        \
-  do {                                  \
-    avb_printv(avb_basename(__FILE__),  \
-               ":",                     \
-               AVB_TO_STRING(__LINE__), \
-               ": ERROR: ",             \
-               message,                 \
                ##__VA_ARGS__);          \
   } while (0)
 
@@ -194,6 +137,7 @@ extern "C" {
                ": FATAL: ",             \
                message,                 \
                NULL);                   \
+      avb_printv_ui(message, NULL);     \
     avb_abort();                        \
   } while (0)
 #define avb_fatalv(message, ...)        \
@@ -204,9 +148,10 @@ extern "C" {
                ": FATAL: ",             \
                message,                 \
                ##__VA_ARGS__);          \
+      avb_printv_ui(message,            \
+               ##__VA_ARGS__);          \
     avb_abort();                        \
   } while (0)
-#endif
 
 /* Converts a 32-bit unsigned integer from big-endian to host byte order. */
 uint32_t avb_be32toh(uint32_t in) AVB_ATTR_WARN_UNUSED_RESULT;
