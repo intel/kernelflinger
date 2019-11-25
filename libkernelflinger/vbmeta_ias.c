@@ -40,6 +40,7 @@
 #include "log.h"
 #include "vars.h"
 #include "security.h"
+#include "lib.h"
 
 #define IASIMAGE_MAX_SUB_IMAGE      32
 #define EVP_MAX_MD_SIZE             64
@@ -249,7 +250,7 @@ static EFI_STATUS verify_ias_image(void *iasimage, BOOLEAN* verify_pass)
 	}
 
 	rsa_ret = RSA_verify(NID_sha256,
-                         datahash, 32, signature_data, 256, rsa);
+                         datahash, 32, signature_data, EVP_PKEY_bits(pkey)/8, rsa);
 	if (rsa_ret == 1)
 		*verify_pass = TRUE;
 	else
