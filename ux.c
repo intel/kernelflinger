@@ -75,9 +75,9 @@ static const ui_textline_t device_altered_unlocked[] = {
 };
 
 static const ui_textline_t secure_boot_off[] = {
-	{ &COLOR_LIGHTGRAY,	"Your device has been altered",		FALSE },
-	{ &COLOR_LIGHTGRAY,	"from its factory configuration.",	FALSE },
-	{ &COLOR_LIGHTGRAY,	"and is no longer in a locked state",	FALSE },
+	{ &COLOR_LIGHTRED,	"Your device has been altered",		FALSE },
+	{ &COLOR_LIGHTRED,	"from its factory configuration.",	FALSE },
+	{ &COLOR_LIGHTGRAY,	"It is no longer in a locked state",	FALSE },
 	{ &COLOR_LIGHTGRAY,	"due to UEFI Secure Boot being",	FALSE },
 	{ &COLOR_LIGHTGRAY,	"disabled",				FALSE },
 	{ &COLOR_LIGHTGRAY,	"",					FALSE },
