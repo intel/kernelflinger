@@ -43,7 +43,6 @@
 
 #include "security.h"
 #include "android.h"
-#include "signature.h"
 #include "lib.h"
 #include "vars.h"
 #include "life_cycle.h"

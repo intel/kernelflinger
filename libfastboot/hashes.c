@@ -42,7 +42,6 @@
 #include "uefi_utils.h"
 #include "gpt.h"
 #include "android.h"
-#include "signature.h"
 #include "security.h"
 #if defined(USE_ACPIO) || defined(USE_ACPI)
 #include "acpi.h"
@@ -376,39 +375,6 @@ struct fec_header {
 	/* [...] */
 };
 
-#ifndef USE_AVB
-/* adapted from build_verity_tree.cpp */
-static UINT64 verity_tree_blocks(UINT64 data_size, INT32 level)
-{
-	UINT64 level_blocks = DIV_ROUND_UP(data_size, VERITY_BLOCK_SIZE);
-
-	do {
-		level_blocks = DIV_ROUND_UP(level_blocks, VERITY_HASHES_PER_BLOCK);
-	} while (level--);
-
-	return level_blocks;
-}
-
-/* adapted from build_verity_tree.cpp */
-static UINT64 verity_tree_size(UINT64 data_size)
-{
-	UINT64 verity_blocks = 0;
-	UINT64 level_blocks;
-	INT32 levels = 0;
-	UINT64 tree_size;
-
-	do {
-		level_blocks = verity_tree_blocks(data_size, levels);
-		levels++;
-		verity_blocks += level_blocks;
-	} while (level_blocks > 1);
-
-	tree_size = verity_blocks * VERITY_BLOCK_SIZE;
-	debug(L"verity tree size %lld", tree_size);
-	return tree_size;
-}
-#endif
-
 static UINT64 part_size(struct gpt_partition_interface *gparti)
 {
 	return (gparti->part.ending_lba + 1 - gparti->part.starting_lba) *
@@ -468,68 +434,6 @@ free:
 	FreePool(buffer);
 	return ret;
 }
-
-#ifndef USE_AVB
-static EFI_STATUS get_bootimage_len(struct gpt_partition_interface *gparti,
-				    UINT64 *len)
-{
-	EFI_STATUS ret;
-	struct boot_img_hdr hdr;
-	struct boot_signature *bs;
-	UINT64 part_off, part_len;
-	void *footer;
-
-	part_off = gparti->part.starting_lba * gparti->bio->Media->BlockSize;
-	part_len = (gparti->part.ending_lba + 1 - gparti->part.starting_lba) *
-		gparti->bio->Media->BlockSize;
-
-	ret = uefi_call_wrapper(gparti->dio->ReadDisk, 5, gparti->dio,
-				gparti->bio->Media->MediaId, part_off,
-				sizeof(hdr), &hdr);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to read the boot image header");
-		return ret;
-	}
-
-	if (strncmp((CHAR8 *)BOOT_MAGIC, hdr.magic, BOOT_MAGIC_SIZE)) {
-		error(L"bad boot magic");
-		return EFI_COMPROMISED_DATA;
-	}
-
-	*len = bootimage_size(&hdr);
-	debug(L"len %lld", *len);
-
-	if (*len + BOOT_SIGNATURE_MAX_SIZE > part_len) {
-		error(L"boot image is bigger than the partition");
-		return EFI_COMPROMISED_DATA;
-	}
-
-	footer = AllocatePool(BOOT_SIGNATURE_MAX_SIZE);
-	if (!footer)
-		return EFI_OUT_OF_RESOURCES;
-
-	ret = uefi_call_wrapper(gparti->dio->ReadDisk, 5, gparti->dio,
-				gparti->bio->Media->MediaId, part_off + *len,
-				BOOT_SIGNATURE_MAX_SIZE, footer);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to read the boot image footer");
-		goto out;
-	}
-
-	bs = get_boot_signature(footer, BOOT_SIGNATURE_MAX_SIZE);
-	if (bs) {
-		*len += bs->total_size;
-		free_boot_signature(bs);
-	} else
-		debug(L"boot image doesn't seem to have a signature");
-
-	debug(L"total boot image size %d", *len);
-
-out:
-	FreePool(footer);
-	return ret;
-}
-#endif
 
 static const unsigned char IAS_IMAGE_MAGIC[4] = "ipk.";
 static const unsigned char MULTIBOOT_MAGIC[4] = "\x02\xb0\xad\x1b";
@@ -706,7 +610,6 @@ EFI_STATUS get_boot_image_hash(const CHAR16 *label)
 		return ret;
 	}
 
-#ifdef USE_AVB
 	len = part_size(&gparti);
 	if (!StrnCmp(label, L"boot_", 5)) {
 		if (len >= BOARD_BOOTIMAGE_PARTITION_SIZE)
@@ -716,11 +619,6 @@ EFI_STATUS get_boot_image_hash(const CHAR16 *label)
 			return EFI_INVALID_PARAMETER;
 		}
 	}
-#else
-	ret = get_bootimage_len(&gparti, &len);
-	if (EFI_ERROR(ret))
-		return ret;
-#endif
 
 	ret = hash_partition(&gparti, len, hash);
 	if (EFI_ERROR(ret))
@@ -729,7 +627,6 @@ EFI_STATUS get_boot_image_hash(const CHAR16 *label)
 	return report_hash(L"/", label, hash);
 }
 
-#ifdef USE_AVB
 EFI_STATUS get_vbmeta_image_hash(const CHAR16 *label)
 {
 	struct gpt_partition_interface gparti;
@@ -755,7 +652,6 @@ EFI_STATUS get_vbmeta_image_hash(const CHAR16 *label)
 
 	return report_hash(L"/", label, hash);
 }
-#endif
 
 static EFI_STATUS get_ext4_len(struct gpt_partition_interface *gparti, UINT64 *len)
 {
@@ -809,58 +705,6 @@ static EFI_STATUS get_squashfs_len(struct gpt_partition_interface *gparti, UINT6
  * <data_blocks> <hole> <verity_tree> <verity_metdata>
  * <data_blocks> <hole> <verity_tree> <verity_metdata> <fec_data> <fec_hdr>
  */
-
-#ifndef USE_AVB
-static EFI_STATUS check_verity_header(struct gpt_partition_interface *gparti, UINT64 *fs_len)
-{
-	EFI_STATUS ret;
-	struct ext4_verity_header vh;
-
-	ret = read_partition(gparti, *fs_len, sizeof(vh), &vh);
-	if (ret == EFI_END_OF_MEDIA)
-		return EFI_NOT_FOUND;
-	if (EFI_ERROR(ret))
-		return ret;
-
-	if (vh.magic == VERITY_METADATA_MAGIC_NUMBER && !vh.protocol_version) {
-		*fs_len += verity_tree_size(*fs_len) + VERITY_METADATA_SIZE;
-		return EFI_SUCCESS;
-	}
-
-	ret = read_partition(gparti, part_size(gparti) - VERITY_METADATA_SIZE,
-			     sizeof(vh), &vh);
-	if (EFI_ERROR(ret))
-		return ret;
-
-	if (vh.magic == VERITY_METADATA_MAGIC_NUMBER && !vh.protocol_version) {
-		*fs_len = part_size(gparti);
-		return EFI_SUCCESS;
-	}
-
-	return EFI_NOT_FOUND;
-}
-
-static EFI_STATUS check_fec_header(struct gpt_partition_interface *gparti, UINT64 *fs_len)
-{
-	EFI_STATUS ret;
-	struct fec_header fec;
-
-	ret = read_partition(gparti, part_size(gparti) - FEC_BLOCK_SIZE,
-			     sizeof(fec), &fec);
-	if (ret == EFI_END_OF_MEDIA)
-		return EFI_NOT_FOUND;
-	if (EFI_ERROR(ret))
-		return ret;
-
-	if (fec.magic != FEC_MAGIC) {
-		debug(L"FEC magic not found");
-		return EFI_NOT_FOUND;
-	}
-
-	*fs_len = part_size(gparti);
-	return EFI_SUCCESS;
-}
-#endif
 
 #ifdef DYNAMIC_PARTITIONS
 EFI_STATUS get_super_image_hash(const CHAR16 *label)
@@ -921,21 +765,8 @@ EFI_STATUS get_fs_hash(const CHAR16 *label)
 		return ret;
 	}
 
-#ifdef USE_AVB
 	if (strcmp((CHAR8*)SUPPORTED_FS[i].name, (CHAR8*)"Ias"))
 		fs_len = part_size(&gparti);
-#else
-	ret = check_verity_header(&gparti, &fs_len);
-	if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND)
-		return ret;
-
-	if (ret == EFI_NOT_FOUND) {
-		ret = check_fec_header(&gparti, &fs_len);
-		if (EFI_ERROR(ret))
-			debug(L"No verity or FEC found, hashing the filesystem only");
-	}
-
-#endif
 	debug(L"filesystem size %lld", fs_len);
 
 	ret = hash_partition(&gparti, fs_len, hash);

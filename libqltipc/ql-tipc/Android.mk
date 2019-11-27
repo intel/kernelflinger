@@ -19,11 +19,8 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../../include/libqltipc
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include \
                     $(LOCAL_PATH)/../interface/include \
                     $(LOCAL_PATH)/../../include \
-                    $(LOCAL_PATH)/../../libsslsupport
-
-ifeq ($(BOARD_AVB_ENABLE),true)
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../avb
-endif
+                    $(LOCAL_PATH)/../../libsslsupport \
+                    $(LOCAL_PATH)/../../avb
 
 LOCAL_SRC_FILES := \
 	ipc.c \

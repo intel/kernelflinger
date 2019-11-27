@@ -141,7 +141,9 @@ LOCAL_SRC_FILES := \
 	virtual_media.c \
 	general_block.c \
 	aes_gcm.c \
-	vbmeta_ias.c
+	vbmeta_ias.c \
+	android_vb2.c \
+	security_vb2.c
 
 ifeq ($(KERNELFLINGER_SUPPORT_USB_STORAGE),true)
 	LOCAL_SRC_FILES += usb_storage.c \
@@ -152,22 +154,10 @@ ifneq (,$(filter true,$(IOC_USE_SLCAN) $(IOC_USE_CBC)))
 	LOCAL_SRC_FILES += ioc_can.c
 endif
 
-ifneq ($(BOARD_AVB_ENABLE),true)
-	LOCAL_SRC_FILES += \
-	signature.c \
-	android_vb1.c \
-	security_vb1.c
-else
-	LOCAL_SRC_FILES += \
-	android_vb2.c \
-	security_vb2.c
-endif
-
 ifeq ($(BOARD_GPIO_ENABLE),true)
     LOCAL_SRC_FILES += gpio.c
 endif
 
-ifeq ($(BOARD_AVB_ENABLE),true)
 ifeq ($(TARGET_USE_ACPIO),true)
 LOCAL_CFLAGS += -DBOARD_ACPIOIMAGE_PARTITION_SIZE=$(BOARD_ACPIOIMAGE_PARTITION_SIZE)
 endif
@@ -177,9 +167,6 @@ endif
 
 ifeq ($(BOARD_SLOT_AB_ENABLE),true)
     LOCAL_SRC_FILES += slot_avb.c
-else
-    LOCAL_SRC_FILES += slot.c
-endif
 else
     LOCAL_SRC_FILES += slot.c
 endif
@@ -252,13 +239,7 @@ ifneq ($(TARGET_UEFI_ARCH),x86_64)
     LOCAL_SRC_FILES += pae.c
 endif
 
-ifeq ($(TARGET_BOOT_SIGNER),)
-ifneq ($(BOARD_AVB_ENABLE), true)
-    LOCAL_SRC_FILES += \
-	aosp_sig.c \
-	asn1.c
-endif
-else
+ifneq ($(TARGET_BOOT_SIGNER),)
     LOCAL_SRC_FILES += $(TARGET_BOOT_SIGNER)_sig.c
 endif
 
@@ -297,13 +278,12 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include/libkernelflinger \
 		$(LOCAL_PATH)/../libsslsupport \
 		$(res_intermediates)
 
-ifeq ($(BOARD_AVB_ENABLE),true)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_ab
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_user
 ifeq ($(BUILD_ANDROID_THINGS),true)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_atx
-endif
 endif
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include/libqltipc
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include/libheci

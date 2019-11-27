@@ -44,7 +44,7 @@
 #if defined(IOC_USE_SLCAN) || defined(IOC_USE_CBC)
 #include "ioc_can.h"
 #endif
-#include "android_vb.h"
+#include "android_vb2.h"
 #include "android.h"
 #include "slot.h"
 #include "timer.h"
@@ -177,7 +177,6 @@ static EFI_STATUS process_bootimage(void *bootimage, UINTN imagesize)
 		return EFI_SUCCESS;
 
 #ifndef __FORCE_FASTBOOT
-#ifdef USE_AVB
 	AvbOps *ops;
 	AvbSlotVerifyData *slot_data = NULL;
 #ifndef USE_SLOT
@@ -277,7 +276,6 @@ static EFI_STATUS process_bootimage(void *bootimage, UINTN imagesize)
 	set_boottime_stamp(TM_PROCRSS_TRUSTY_DONE);
 #endif //USE_TRUSTY
 fail:
-#endif //USE_AVB
 #else
 	//Fastboot stored in the SPI gets the capability to load an image
 	//(fastboot boot) using the RAMDISK and nothing from the eMMC
@@ -708,8 +706,6 @@ static EFI_STATUS start_boot_image(VOID *bootimage, UINT8 boot_state,
 	return ret;
 }
 
-
-#ifdef USE_AVB
 EFI_STATUS avb_boot_android(enum boot_target boot_target, CHAR8 *abl_cmd_line)
 {
 	AvbOps *ops;
@@ -896,190 +892,6 @@ fail:
 
 	return ret;
 }
-#endif
-
-#ifndef USE_AVB
-/* Load a boot image into RAM.
- *
- * boot_target  - Boot image to load. Values supported are NORMAL_BOOT, RECOVERY,
- *                and ESP_BOOTIMAGE (for 'fastboot boot')
- * target_path  - Path to load boot image from for ESP_BOOTIMAGE case, ignored
- *                otherwise.
- * bootimage    - Returned allocated pointer value for the loaded boot image.
- * oneshot      - For ESP_BOOTIMAGE case, flag indicating that the image should
- *                be deleted.
- *
- * Return values:
- * EFI_INVALID_PARAMETER - Unsupported boot target type, key is not well-formed,
- *                         or loaded boot image was missing or corrupt
- * EFI_ACCESS_DENIED     - Validation failed against OEM or embedded certificate,
- *                         boot image still usable
- */
-static EFI_STATUS load_boot_image(
-				IN enum boot_target boot_target,
-				IN CHAR16 *target_path,
-				OUT VOID **bootimage,
-				IN BOOLEAN oneshot)
-{
-	EFI_STATUS ret;
-
-	switch (boot_target) {
-	case NORMAL_BOOT:
-		ret = EFI_NOT_FOUND;
-		if (use_slot() && !slot_get_active())
-			break;
-		do {
-			const CHAR16 *label = slot_label(BOOT_LABEL);
-			ret = android_image_load_partition(label, bootimage);
-			if (EFI_ERROR(ret)) {
-				efi_perror(ret, L"Failed to load boot image from %s partition",
-						label);
-				if (use_slot())
-					slot_boot_failed(boot_target);
-			}
-		} while (EFI_ERROR(ret) && slot_get_active());
-		break;
-
-	case RECOVERY:
-		if (recovery_in_boot_partition()) {
-			ret = load_boot_image(NORMAL_BOOT, target_path, bootimage, oneshot);
-			break;
-		}
-		if (use_slot() && !slot_recovery_tries_remaining()) {
-			ret = EFI_NOT_FOUND;
-			break;
-		}
-		ret = android_image_load_partition(RECOVERY_LABEL, bootimage);
-		break;
-	default:
-		*bootimage = NULL;
-		return EFI_INVALID_PARAMETER;
-	}
-
-	if (!EFI_ERROR(ret))
-		debug(L"boot image loaded");
-
-	return ret;
-}
-
-/* Validate an image.
- *
- * Parameters:
- * boot_target    - Boot image to load. Values supported are NORMAL_BOOT,
- *                  RECOVERY, and ESP_BOOTIMAGE (for 'fastboot boot')
- * bootimage      - Bootimage to validate
- * verifier_cert  - Return the certificate that validated the boot image
- *
- * Return values:
- * BOOT_STATE_GREEN  - Boot image is valid against provided certificate
- * BOOT_STATE_YELLOW - Boot image is valid against embedded certificate
- * BOOT_STATE_RED    - Boot image is not valid
- */
-static UINT8 validate_bootimage(
-		IN enum boot_target boot_target,
-		IN VOID *bootimage,
-		OUT X509 **verifier_cert)
-{
-	CHAR16 target[BOOT_TARGET_SIZE];
-	CHAR16 *expected;
-	CHAR16 *expected2 = NULL;
-	UINT8 boot_state;
-
-	boot_state = verify_android_boot_image(bootimage, oem_cert,
-						oem_cert_size, target,
-						verifier_cert);
-
-	if (boot_state == BOOT_STATE_RED) {
-		error(L"boot image doesn't verify");
-		return boot_state;
-	}
-
-	switch (boot_target) {
-	case NORMAL_BOOT:
-		expected = L"/boot";
-		/* in case of multistage ota */
-		expected2 = L"/recovery";
-		break;
-	case RECOVERY:
-		if (recovery_in_boot_partition())
-			expected = L"/boot";
-		else
-			expected = L"/recovery";
-		break;
-	default:
-		expected = NULL;
-	}
-
-	if ((!expected || StrCmp(expected, target)) &&
-		(!expected2 || StrCmp(expected2, target))) {
-		error(L"boot image has unexpected target name");
-		return BOOT_STATE_RED;
-	}
-
-	return boot_state;
-}
-
-EFI_STATUS boot_android(enum boot_target boot_target, CHAR8 *abl_cmd_line)
-{
-	EFI_STATUS ret;
-	CHAR16 *target_path = NULL;
-	VOID *bootimage = NULL;
-	BOOLEAN oneshot = FALSE;
-	UINT8 boot_state = BOOT_STATE_GREEN;
-	X509 *verifier_cert = NULL;
-
-	debug(L"Loading boot image");
-	ret = load_boot_image(boot_target, target_path, &bootimage, oneshot);
-	FreePool(target_path);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to load boot image");
-		return ret;
-	}
-	boot_state = validate_bootimage(boot_target, bootimage, &verifier_cert);
-
-	ret = update_rot_data(bootimage, boot_state, verifier_cert);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to init rot params");
-		goto exit;
-	}
-	set_boottime_stamp(TM_VERIFY_BOOT_DONE);
-
-        /* install acpi tables before starting trusty */
-        ret = setup_acpi_table(bootimage, boot_target);
-        if (EFI_ERROR(ret)) {
-                efi_perror(ret, L"setup_acpi_table");
-                return ret;
-        }
-
-#ifdef USE_TRUSTY
-	if (boot_target == NORMAL_BOOT) {
-		VOID *tosimage = NULL;
-		ret = load_tos_image(&tosimage);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Load tos image failed");
-			goto exit;
-		}
-		set_boottime_stamp(TM_LOAD_TOS_DONE);
-		ret = start_trusty(tosimage);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Unable to start trusty: stop");
-			goto exit;
-		}
-		set_boottime_stamp(TM_PROCRSS_TRUSTY_DONE);
-	}
-#endif
-
-	ret = start_boot_image(bootimage, boot_state, boot_target, verifier_cert, abl_cmd_line);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to start boot image");
-		goto exit;
-	}
-
-	ret = EFI_INVALID_PARAMETER;
-exit:
-	return ret;
-}
-#endif
 
 #ifdef FASTBOOT_FOR_NON_ANDROID
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
@@ -1198,11 +1010,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		case NORMAL_BOOT:
 		case RECOVERY:
 			set_boottime_stamp(TM_AVB_START);
-#ifdef USE_AVB
 			ret = avb_boot_android(target, cmd_buf);
-#else
-			ret = boot_android(target, cmd_buf);
-#endif
 			if (EFI_ERROR(ret))
 				target = FASTBOOT;
 			break;

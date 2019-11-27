@@ -643,7 +643,6 @@ out:
 	return ret;
 }
 
-#ifdef USE_AVB
 /* Disable the slot if kfld failed to load it.
   */
 static void disable_slot_if_efi_loaded_slot_failed()
@@ -804,144 +803,6 @@ static EFI_STATUS avb_load_verify_boot_image(
 	return ret;
 }
 
-#else  // USE_AVB == false
-
-/* Validate an image.
- *
- * Parameters:
- * boot_target    - Boot image to load. Values supported are NORMAL_BOOT,
- *                  RECOVERY, and ESP_BOOTIMAGE (for 'fastboot boot')
- * bootimage      - Bootimage to validate
- * verifier_cert  - Return the certificate that validated the boot image
- *
- * Return values:
- * BOOT_STATE_GREEN  - Boot image is valid against provided certificate
- * BOOT_STATE_YELLOW - Boot image is valid against embedded certificate
- * BOOT_STATE_RED    - Boot image is not valid
- */
-static UINT8 validate_bootimage(
-		IN enum boot_target boot_target,
-		IN VOID *bootimage,
-		X509 **verifier_cert)
-{
-	CHAR16 target[BOOT_TARGET_SIZE];
-	CHAR16 *expected;
-	CHAR16 *expected2 = NULL;
-	UINT8 boot_state;
-
-	boot_state = verify_android_boot_image(bootimage, oem_cert,
-						oem_cert_size, target,
-						verifier_cert);
-
-	if (boot_state == BOOT_STATE_RED) {
-		debug(L"boot image doesn't verify");
-		return boot_state;
-	}
-
-	switch (boot_target) {
-	case NORMAL_BOOT:
-		expected = L"/boot";
-		/* in case of multistage ota */
-		expected2 = L"/recovery";
-		break;
-	case CHARGER:
-		expected = L"/boot";
-		break;
-	case RECOVERY:
-		if (recovery_in_boot_partition())
-			expected = L"/boot";
-		else
-			expected = L"/recovery";
-		break;
-	case ESP_BOOTIMAGE:
-		/* "live" bootable image */
-		expected = L"/boot";
-		break;
-	default:
-		expected = NULL;
-	}
-
-	if ((!expected || StrCmp(expected, target)) &&
-			(!expected2 || StrCmp(expected2, target))) {
-		debug(L"boot image has unexpected target name");
-		return BOOT_STATE_RED;
-	}
-
-	return boot_state;
-}
-
-/* Load a boot image into RAM.
- *
- * boot_target  - Boot image to load. Values supported are NORMAL_BOOT, RECOVERY,
- *                and ESP_BOOTIMAGE (for 'fastboot boot')
- * target_path  - Path to load boot image from for ESP_BOOTIMAGE case, ignored
- *                otherwise.
- * bootimage    - Returned allocated pointer value for the loaded boot image.
- * oneshot      - For ESP_BOOTIMAGE case, flag indicating that the image should
- *                be deleted.
- *
- * Return values:
- * EFI_INVALID_PARAMETER - Unsupported boot target type, key is not well-formed,
- *                         or loaded boot image was missing or corrupt
- * EFI_ACCESS_DENIED     - Validation failed against OEM or embedded certificate,
- *                         boot image still usable
- */
-static EFI_STATUS load_boot_image(
-		IN enum boot_target boot_target,
-		IN CHAR16 *target_path,
-		OUT VOID **bootimage,
-		IN BOOLEAN oneshot)
-{
-	EFI_STATUS ret;
-
-	switch (boot_target) {
-	case NORMAL_BOOT:
-	case CHARGER:
-		ret = EFI_NOT_FOUND;
-		if (use_slot() && !slot_get_active())
-			break;
-		do {
-			const CHAR16 *label = slot_label(BOOT_LABEL);
-
-			ret = android_image_load_partition(label, bootimage);
-			if (EFI_ERROR(ret)) {
-				efi_perror(ret, L"Failed to load boot image from %s partition",
-					label);
-				if (use_slot())
-					slot_boot_failed(boot_target);
-			}
-		} while (EFI_ERROR(ret) && slot_get_active());
-		break;
-	case RECOVERY:
-		if (recovery_in_boot_partition()) {
-			ret = load_boot_image(NORMAL_BOOT, target_path, bootimage, oneshot);
-			break;
-		}
-
-		if (use_slot() && !slot_recovery_tries_remaining()) {
-			ret = EFI_NOT_FOUND;
-			break;
-		}
-
-		ret = android_image_load_partition(RECOVERY_LABEL, bootimage);
-		break;
-	case ESP_BOOTIMAGE:
-		/* "fastboot boot" case */
-		ret = android_image_load_file(g_disk_device, target_path, oneshot,
-			bootimage);
-		break;
-	default:
-		*bootimage = NULL;
-		return EFI_INVALID_PARAMETER;
-	}
-
-	if (!EFI_ERROR(ret))
-		debug(L"boot image loaded");
-
-	return ret;
-}
-#endif
-
 #define OEMVARS_MAGIC           "#OEMVARS\n"
 #define OEMVARS_MAGIC_SZ        9
 
@@ -1061,14 +922,6 @@ static EFI_STATUS load_image(VOID *bootimage, UINT8 boot_state,
 #endif
 		}
 		set_boottime_stamp(TM_PROCRSS_TRUSTY_DONE);
-	}
-#endif
-
-#if !defined(USE_AVB)
-	ret = slot_boot(boot_target);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to write slot boot");
-		return ret;
 	}
 #endif
 
@@ -1247,8 +1100,6 @@ static void flash_bootloader_policy(__attribute__((__unused__)) UINT8 boot_state
 {
 	VOID *bootimage = NULL;
 	EFI_STATUS ret;
-
-#ifdef USE_AVB
 	UINT8 new_boot_state = boot_state;
 	AvbSlotVerifyData *slot_data;
 
@@ -1258,22 +1109,7 @@ static void flash_bootloader_policy(__attribute__((__unused__)) UINT8 boot_state
 		efi_perror(ret, L"Failed to load the boot image using AVB to get bootloader policy");
 		goto out;
 	}
-#else
-	UINT8 verify_state;
 
-	debug(L"Loading bootloader policy");
-	ret = load_boot_image(NORMAL_BOOT, NULL, &bootimage, FALSE);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to load the boot image to get bootloader policy");
-		return;
-	}
-
-	verify_state = validate_bootimage(NORMAL_BOOT, bootimage, NULL);
-	if (EFI_ERROR(ret) || verify_state != BOOT_STATE_GREEN) {
-		efi_perror(ret, L"Failed to verify the boot image to get bootloader policy");
-		goto out;
-	}
-#endif
 	/* The bootloader policy EFI variables are using the
 	 * FASTBOOT_GUID.
 	 */
@@ -1286,13 +1122,8 @@ static void flash_bootloader_policy(__attribute__((__unused__)) UINT8 boot_state
 	if (!blpolicy_is_flashed())
 		debug(L"Bootloader Policy EFI variables are not flashed");
 out:
-#ifdef USE_AVB
 	if (slot_data != NULL)
 		avb_slot_verify_data_free(slot_data);
-#else
-	if (bootimage != NULL)
-		FreePool(bootimage);
-#endif
 }
 #endif
 
@@ -1305,9 +1136,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	BOOLEAN lock_prompted = FALSE;
 	enum boot_target boot_target = NORMAL_BOOT;
 	UINT8 boot_state = BOOT_STATE_GREEN;
-#ifndef USE_AVB
-	UINT8 *hash = NULL;
-#endif
 	VBDATA *vb_data = NULL;
 
 	set_boottime_stamp(TM_EFI_MAIN);
@@ -1496,29 +1324,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 
 	set_boottime_stamp(TM_AVB_START);
 	acpi_set_boot_target(boot_target);
-#ifdef USE_AVB
+
+	/* AVB check */
 	disable_slot_if_efi_loaded_slot_failed();
 	ret = avb_load_verify_boot_image(boot_target, target_path, &bootimage, oneshot, &boot_state, &vb_data);
-#else
-	ret = load_boot_image(boot_target, target_path, &bootimage, oneshot);
-	FreePool(target_path);
-	if (EFI_ERROR(ret)) {
-		debug(L"issue loading boot image: %r", ret);
-		boot_state = BOOT_STATE_RED;
-	} else if (boot_state != BOOT_STATE_ORANGE) {
-		debug(L"Validating boot image");
-		boot_state = validate_bootimage(boot_target, bootimage,
-						&vb_data);
-	}
 
-	if (boot_state == BOOT_STATE_YELLOW) {
-		ret = pub_key_sha256(vb_data, &hash);
-		if (EFI_ERROR(ret))
-			efi_perror(ret, L"Failed to compute pub key hash");
-		boot_error(BOOTIMAGE_UNTRUSTED_CODE, boot_state, hash,
-			SHA256_DIGEST_LENGTH);
-	}
-#endif
 	set_boottime_stamp(TM_VERIFY_BOOT_DONE);
 
 	if (boot_state == BOOT_STATE_RED) {
@@ -1564,10 +1374,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 			if (slot_get_active())
 				reboot_to_target(boot_target, EfiResetCold);
 		}
-#if !defined(USE_AVB)
-		else if (slot_recovery_tries_remaining())
-			reboot_to_target(boot_target, EfiResetCold);
-#endif
 		break;
 	default:
 		break;

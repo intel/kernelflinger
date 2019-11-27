@@ -33,7 +33,6 @@
 #include <efi.h>
 #include <efiapi.h>
 
-#include "signature.h"
 #include "vars.h"
 #include "ui.h"
 #include "lib.h"
@@ -1017,7 +1016,7 @@ BOOLEAN is_UEFI(VOID)
 	return val.value;
 }
 
-#if defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
+#ifdef SECURE_STORAGE_EFIVAR
 EFI_STATUS read_efi_rollback_index(UINTN rollback_index_slot, uint64_t* out_rollback_index)
 {
 	EFI_STATUS ret;
@@ -1105,4 +1104,4 @@ EFI_STATUS get_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS *error)
 	return EFI_SUCCESS;
 }
 
-#endif // defined(SECURE_STORAGE_EFIVAR) && defined(USE_AVB)
+#endif //SECURE_STORAGE_EFIVAR

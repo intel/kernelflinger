@@ -24,7 +24,7 @@
 #include "blobstore.h"
 #endif
 #include "targets.h"
-#include "android_vb.h"
+#include "android_vb2.h"
 
 #define BOOT_MAGIC "ANDROID!"
 #define BOOT_MAGIC_SIZE 8

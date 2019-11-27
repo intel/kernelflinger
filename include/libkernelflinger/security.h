@@ -34,8 +34,8 @@
 #include <efi.h>
 #include <efilib.h>
 #include <openssl/x509.h>
-#include "android_vb.h"
-#include "security_vb.h"
+#include "android_vb2.h"
+#include "security_vb2.h"
 
 #ifndef _SECURITY_H_
 #define _SECURITY_H_

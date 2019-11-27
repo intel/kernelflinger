@@ -126,7 +126,6 @@ EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO **acpi_in
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-#ifdef USE_AVB
 	/*
 	  If AVB case, get the image length from mixins' definition.
 	 */
@@ -150,14 +149,6 @@ EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO **acpi_in
 		FreePool(current_acpi);
 		return EFI_INVALID_PARAMETER;
 	}
-#else
-	(*current_acpi).img_size = total_size;
-	if (((*current_acpi).img_size + BOOT_SIGNATURE_MAX_SIZE) > partition_size) {
-		error(L"%s image is larger than partition size", label);
-		FreePool(current_acpi);
-		return EFI_INVALID_PARAMETER;
-	}
-#endif
 
 	(*current_acpi).MediaId = MediaId;
 	(*current_acpi).partition_start = partition_start;

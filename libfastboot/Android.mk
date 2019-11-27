@@ -11,12 +11,8 @@ SHARED_STATIC_LIBRARIES := \
 	libefiusb-$(TARGET_BUILD_VARIANT) \
 	libefitcp-$(TARGET_BUILD_VARIANT) \
 	libtransport-$(TARGET_BUILD_VARIANT) \
-	libkernelflinger-$(TARGET_BUILD_VARIANT)
-
-ifeq ($(BOARD_AVB_ENABLE),true)
-SHARED_STATIC_LIBRARIES += \
+	libkernelflinger-$(TARGET_BUILD_VARIANT) \
 	libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
-endif
 
 ifeq ($(TARGET_USE_TPM),true)
     SHARED_STATIC_LIBRARIES += libedk2_tpm

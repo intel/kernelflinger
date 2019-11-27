@@ -32,7 +32,6 @@
 
 #include <openssl/obj_mac.h>
 
-#include "signature.h"
 #include "lib.h"
 
 #define IASS_MAGIC		0x53534149 /* "IASS" */

@@ -52,7 +52,7 @@
 #include "slot.h"
 #include "pae.h"
 #include "timer.h"
-#include "android_vb.h"
+#include "android_vb2.h"
 #ifdef RPMB_STORAGE
 #include "rpmb_storage.h"
 #endif

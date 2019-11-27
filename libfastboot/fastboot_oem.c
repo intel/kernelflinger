@@ -50,10 +50,8 @@
 #include "fastboot_flashing.h"
 #include "intel_variables.h"
 #include "text_parser.h"
-#ifdef USE_AVB
 #include "libavb/libavb.h"
 #include "libavb_user/uefi_avb_ops.h"
-#endif
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
@@ -254,9 +252,7 @@ static struct oem_hash {
 	{ TOS_LABEL,		get_boot_image_hash,	TRUE },
 #endif
 	{ BOOTLOADER_LABEL,	get_bootloader_hash,	FALSE },
-#ifdef USE_AVB
 	{ VBMETA_LABEL,		get_vbmeta_image_hash,	FALSE },
-#endif
 #ifdef DYNAMIC_PARTITIONS
 	{ SUPER_LABEL,		get_super_image_hash,	TRUE }
 #else
