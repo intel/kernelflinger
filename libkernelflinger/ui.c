@@ -114,31 +114,42 @@ EFI_STATUS ui_init(UINTN *width_p, UINTN *height_p)
 		return ret;
 	}
 
-	/* Set the best mode possible. */
-	for (mode = 0 ; mode < graphic.output->Mode->MaxMode ; mode++) {
-		ret = uefi_call_wrapper(graphic.output->QueryMode, 4, graphic.output,
-					mode, &info_size, &info);
+	if (is_run_on_kvm()) {
+		/*
+		 * When run on kvm, change mode may lead to incorrect display.
+		 * use current mode instead of finding the best mode.
+		 *
+		 */
+		graphic.mode = graphic.output->Mode->Mode;
+		graphic.width = graphic.output->Mode->Info->HorizontalResolution;
+		graphic.height = graphic.output->Mode->Info->VerticalResolution;
+	} else {
+		/* Set the best mode possible. */
+		for (mode = 0 ; mode < graphic.output->Mode->MaxMode ; mode++) {
+			ret = uefi_call_wrapper(graphic.output->QueryMode, 4, graphic.output,
+						mode, &info_size, &info);
 
-		if (last_succeed
-		    && (graphic.width > info->HorizontalResolution
-			|| graphic.height > info->VerticalResolution))
-			continue;
+			if (last_succeed
+			    && (graphic.width > info->HorizontalResolution
+				|| graphic.height > info->VerticalResolution))
+				continue;
 
-		ret = uefi_call_wrapper(graphic.output->SetMode, 2, graphic.output, mode);
-		if (EFI_ERROR(ret)) {
-			debug(L"Failed to set mode=%d (%dx%d): %r", graphic.mode,
-			      graphic.width, graphic.height, ret);
-			continue;
+			ret = uefi_call_wrapper(graphic.output->SetMode, 2, graphic.output, mode);
+			if (EFI_ERROR(ret)) {
+				debug(L"Failed to set mode=%d (%dx%d): %r", graphic.mode,
+				      graphic.width, graphic.height, ret);
+				continue;
+			}
+
+			last_succeed = TRUE;
+			graphic.width = info->HorizontalResolution;
+			graphic.height = info->VerticalResolution;
+			graphic.mode = mode;
 		}
 
-		last_succeed = TRUE;
-		graphic.width = info->HorizontalResolution;
-		graphic.height = info->VerticalResolution;
-		graphic.mode = mode;
+		if (!last_succeed)
+			return EFI_UNSUPPORTED;
 	}
-
-	if (!last_succeed)
-		return EFI_UNSUPPORTED;
 
 	if (!ui_font_get_default()) {
 		error(L"Default font not available");
