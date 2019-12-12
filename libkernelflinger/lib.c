@@ -1209,5 +1209,17 @@ EFI_STATUS string_to_argv(char *str, INTN *argc, CHAR8 *argv[], UINTN max_argc,
         return EFI_SUCCESS;
 }
 
+int is_run_on_kvm(void)
+{
+    UINT32 reg[4];
+
+    cpuid(0x40000000, reg);
+    debug(L"cpuid: 0x%X 0x%X 0x%X 0x%X\n", reg[0], reg[1], reg[2], reg[3]);
+    if (reg[0] == 0x40000001 && reg[1] == 0x4b4d564b && reg[2] == 0x564b4d56 && reg[3] == 0x4d)
+        return 1;
+
+    return 0;
+}
+
 /* vim: softtabstop=8:shiftwidth=8:expandtab
  */
