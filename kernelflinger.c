@@ -1102,6 +1102,24 @@ static VOID die(VOID)
 	halt_system();
 }
 
+VOID connect_all_drivers(VOID)
+{
+	EFI_STATUS ret;
+	EFI_HANDLE *handles;
+	UINTN      nb_handle = 0;
+	UINTN      index;
+
+	ret = BS->LocateHandleBuffer (AllHandles, NULL, NULL, &nb_handle, &handles);
+	if (EFI_ERROR(ret))
+		return;
+
+	for (index = 0; index < nb_handle; index++)
+		BS->ConnectController (handles[index], NULL, NULL, TRUE);
+
+	if (handles != NULL)
+		FreePool (handles);
+}
+
 static VOID enter_fastboot_mode(UINT8 boot_state)
 	__attribute__ ((noreturn));
 
@@ -1116,6 +1134,16 @@ static VOID enter_fastboot_mode(UINT8 boot_state)
 	VOID *bootimage_p;
 	AvbSlotVerifyData *slot_data;
 
+	if (is_run_on_kvm()) {
+		/*
+		 * When run on kvm, OVMF will not connect network driver and other driver that
+		 * is not necessary for boot to achieve better performance, while network is
+		 * necessary for fastboot mode since USB device mode is not supported.
+		 * Connect all drivers that have not been connected.
+		 *
+		 */
+		connect_all_drivers();
+	}
 	set_efi_variable(&fastboot_guid, BOOT_STATE_VAR, sizeof(boot_state),
 			&boot_state, FALSE, TRUE);
 	set_oemvars_update(TRUE);
