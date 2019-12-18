@@ -58,7 +58,7 @@
 #define VMM_MEM_BASE             0x34C00000
 #define VMM_MEM_SIZE             0x01000000
 #define TRUSTY_MEM_BASE          0x32C00000
-#define TRUSTY_MEM_SIZE          0x01200000
+#define TRUSTY_MEM_SIZE          0x01400000
 #define TRUSTY_KEYBOX_KEY_SIZE   32
  /*
  * this is the startup structure containes the informations for ikgt and trusty
