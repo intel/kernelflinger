@@ -47,10 +47,6 @@
 #include "vars.h"
 #include "life_cycle.h"
 
-#ifdef USE_IPP_SHA256
-#include "sha256_ipps.h"
-#endif
-
 /* OsSecureBoot is *not* a standard EFI_GLOBAL variable
  *
  * It's value will be read at ExitBootServices() by the BIOS to run

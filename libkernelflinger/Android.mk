@@ -94,11 +94,6 @@ ifeq ($(KERNELFLINGER_DISABLE_DEBUG_PRINT),true)
     LOCAL_CFLAGS += -D__DISABLE_DEBUG_PRINT
 endif
 
-ifeq ($(KERNELFLINGER_USE_IPP_SHA256),true)
-    LOCAL_CFLAGS += -DUSE_IPP_SHA256
-    LOCAL_CFLAGS += -msse4 -msha
-endif
-
 ifneq ($(KERNELFLINGER_FIXED_RPMB_KEY),)
     LOCAL_CFLAGS += -DFIXED_RPMB_KEY=$(KERNELFLINGER_FIXED_RPMB_KEY)
 endif
@@ -169,10 +164,6 @@ ifeq ($(BOARD_SLOT_AB_ENABLE),true)
     LOCAL_SRC_FILES += slot_avb.c
 else
     LOCAL_SRC_FILES += slot.c
-endif
-
-ifeq ($(KERNELFLINGER_USE_IPP_SHA256),true)
-    LOCAL_SRC_FILES += sha256_ipps.c
 endif
 
 ifeq ($(TARGET_USE_TPM),true)

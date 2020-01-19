@@ -85,10 +85,6 @@ LOCAL_STATIC_LIBRARIES := \
 	libtransport-$(TARGET_BUILD_VARIANT) \
 	libkernelflinger-$(TARGET_BUILD_VARIANT)
 
-ifeq ($(KERNELFLINGER_USE_IPP_SHA256),true)
-    LOCAL_CFLAGS += -DUSE_IPP_SHA256
-    LOCAL_CFLAGS += -msse4 -msha
-endif
 ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
     LOCAL_CFLAGS += -DUSE_UI
 endif
@@ -112,19 +108,12 @@ LOCAL_SRC_FILES := \
     libavb_user/uefi_avb_sysdeps.c \
     libavb_user/uefi_avb_ops.c \
     libavb_user/uefi_avb_util.c \
-    libavb_ab/avb_ab_flow.c
+    libavb_ab/avb_ab_flow.c \
+    libavb/avb_sha256.c
 
 ifeq ($(BUILD_ANDROID_THINGS),true)
 LOCAL_SRC_FILES += \
     libavb_atx/avb_atx_validate.c
-endif
-
-ifeq ($(KERNELFLINGER_USE_IPP_SHA256),true)
-LOCAL_SRC_FILES += \
-    libavb_user/avb_sha256_ipps.c
-else
-LOCAL_SRC_FILES += \
-    libavb/avb_sha256.c
 endif
 
 LOCAL_C_INCLUDES := \
@@ -132,4 +121,3 @@ LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,../libsslsupport)
 
 include $(BUILD_EFI_STATIC_LIBRARY)
-
