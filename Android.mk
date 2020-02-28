@@ -1,5 +1,5 @@
 KERNELFLINGER_LOCAL_PATH := $(call my-dir)
-KERNELFLINGER_CFLAGS := -Wall -Wextra -Werror -mrdrnd
+KERNELFLINGER_CFLAGS := -Wa,--noexecstack -Wall -Wextra -Werror -mrdrnd -fwrapv -fno-delete-null-pointer-checks
 
 ifeq ($(KERNELFLINGER_NON-ANDROID),true)
 KERNELFLINGER_CFLAGS += -DFASTBOOT_FOR_NON_ANDROID
