@@ -205,6 +205,7 @@ EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
 		*num_seeds = blist.NumOfSeeds;
 		memcpy(seed_list, blist.SeedList, sizeof(blist.SeedList));
 		memset(&blist, 0, sizeof(blist));
+		barrier();
 		return ret;
 	}
 
@@ -227,6 +228,7 @@ EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
 	tmp->svn = BOOTLOADER_SEED_MAX_ENTRIES - 1;
 	memcpy(tmp->seed, seed, TRUSTY_SEED_SIZE);
 	memset(seed, 0, sizeof(seed));
+	barrier();
 #endif
 
 	return EFI_SUCCESS;

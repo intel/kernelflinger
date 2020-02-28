@@ -70,6 +70,8 @@ typedef INTN ssize_t;
     halt_system(); \
 } while(0)
 
+#define barrier() __asm__ __volatile__("" ::: "memory")
+
 /* Current EFI image handle.  To be use as parent image with the
    LoadImage boot service */
 extern EFI_HANDLE g_parent_image;

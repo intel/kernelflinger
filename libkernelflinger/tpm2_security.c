@@ -712,6 +712,7 @@ out:
 	// Maybe be optimized?
 	memset(trusty_seed.buffer, 0, TRUSTY_SEED_SIZE);
 	memset(read_seed, 0, TRUSTY_SEED_SIZE);
+	barrier();
 	return ret;
 }
 
@@ -764,6 +765,7 @@ EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE])
 
 out:
 	memset(seed, 0, TRUSTY_SEED_SIZE);
+	barrier();
 	return ret;
 }
 
