@@ -1021,7 +1021,12 @@ EFI_STATUS tpm2_init(void)
 	if (EFI_ERROR(ret))
 		return ret;
 
-	return tpm2_check_trusty_seed_index();
+	ret = tpm2_check_trusty_seed_index();
+	if (EFI_ERROR(ret))
+		return ret;
+
+	debug(L"TPM init OK. Secure boot ENABLED.");
+	return ret;
 }
 
 EFI_STATUS tpm2_end(void)
