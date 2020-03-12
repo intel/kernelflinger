@@ -1135,6 +1135,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		goto exit;
 	}
 
+	/* Run the fastboot library. */
+	ret = fastboot_start(&bootimage, &efiimage, &imagesize, &target);
+	if (EFI_ERROR(ret))
+		goto exit;
+
 #ifdef RPMB_STORAGE
 	ret = rpmb_key_init();
 	if (EFI_ERROR(ret)) {
@@ -1142,11 +1147,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		goto exit;
 	}
 #endif  /* RPMB_STORAGE */
-
-	/* Run the fastboot library. */
-	ret = fastboot_start(&bootimage, &efiimage, &imagesize, &target);
-	if (EFI_ERROR(ret))
-		goto exit;
 
 	if (target != UNKNOWN_TARGET)
 		reboot_to_target(target, EfiResetCold);
