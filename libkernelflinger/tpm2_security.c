@@ -1013,17 +1013,25 @@ EFI_STATUS tpm2_init(void)
 {
 	EFI_STATUS ret;
 
+	debug(L">%a", __func__);
+
 	ret = tpm2_check_cap_permanent();
-	if (EFI_ERROR(ret))
+	if (EFI_ERROR(ret)) {
+		debug(L"<%a cap %d 0x%08x", __func__, ret, ret);
 		return ret;
+	}
 
 	ret = tpm2_check_bootloader_index();
-	if (EFI_ERROR(ret))
+	if (EFI_ERROR(ret)) {
+		debug(L"<%a index %d 0x%08x", __func__, ret, ret);
 		return ret;
+	}
 
 	ret = tpm2_check_trusty_seed_index();
-	if (EFI_ERROR(ret))
+	if (EFI_ERROR(ret)) {
+		debug(L"<%a seed %d 0x%08x", __func__, ret, ret);
 		return ret;
+	}
 
 	debug(L"TPM init OK. Secure boot ENABLED.");
 	return ret;

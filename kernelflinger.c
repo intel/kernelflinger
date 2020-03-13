@@ -1154,15 +1154,21 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	}
 	g_disk_device = g_loaded_image->DeviceHandle;
 
+	debug(L"%a 0.70", __func__);
+
 	/* loaded from mass storage (not DnX) */
 	if (g_disk_device) {
+		debug(L"%a 0.75", __func__);
 		ret = storage_set_boot_device(g_disk_device);
 		if (EFI_ERROR(ret))
 			error(L"Failed to set boot device");
 	}
 
+	debug(L"%a 0.80", __func__);
+
 	// Set the boot device now
 	if (!get_boot_device_handle()) {
+		debug(L"%a 0.81", __func__);
 		if (!get_boot_device()) {
 			// Get boot device failed
 			error(L"Failed to find boot device");
@@ -1170,12 +1176,19 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		}
 	}
 
+	debug(L"%a 0.90", __func__);
+
 	uefi_bios_update_capsule(g_disk_device, FWUPDATE_FILE);
+
+	debug(L"%a 0.100", __func__);
 
 	uefi_check_upgrade(g_loaded_image, BOOTLOADER_LABEL, KFUPDATE_FILE,
 			BOOTLOADER_FILE, BOOTLOADER_FILE_BAK, KFSELF_FILE, KFBACKUP_FILE);
 
+	debug(L"%a 10", __func__);
 #ifdef USE_TPM
+	debug(L"%a 11 live %d sec boot %d", __func__, !is_live_boot(), is_platform_secure_boot_enabled());
+
 	if (!is_live_boot() && is_platform_secure_boot_enabled()) {
 		ret = tpm2_init();
 		if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
@@ -1184,6 +1197,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		}
 	}
 #endif
+	debug(L"%a 20", __func__);
 
 	ret = set_device_security_info(NULL);
 	if (EFI_ERROR(ret)) {
@@ -1191,9 +1205,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		boot_target = FASTBOOT;
 	}
 
+	debug(L"%a 30", __func__);
+
 #ifdef RPMB_STORAGE
 	// Init the rpmb
 	ret = rpmb_storage_init();
+	debug(L"%a 40 %d 0x%08x", __func__, ret, ret);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to init RPMB, enter fastboot mode");
 		boot_target = FASTBOOT;
