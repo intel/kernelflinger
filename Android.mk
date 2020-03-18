@@ -583,7 +583,11 @@ CIC_PADDED_VERITY_CERT := $(keys4cic_intermediates)/verity.padded.cer
 CIC_OEMCERT_OBJ := $(keys4cic_intermediates)/oemcert.o
 
 $(CIC_VERITY_CERT): $(INTEL_PATH_BUILD)/testkeys/xbl_default.x509.pem
-	$(transform-pem-cert-to-der-cert)
+        #$(transform-pem-cert-to-der-cert)
+        @echo "PEM key: $(notdir $@) <= $(notdir $<)"
+        $(hide) mkdir -p $(dir $@)
+        @echo "openssl pkcs8 -inform DER -outform PEM -nocrypt -in $< -out $@"
+        $(hide) openssl pkcs8 -inform DER -outform PEM -nocrypt -in $< -out $@
 
 $(CIC_PADDED_VERITY_CERT): $(CIC_VERITY_CERT)
 	$(call pad-binary, 4096)
