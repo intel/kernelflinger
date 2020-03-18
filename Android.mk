@@ -1,6 +1,20 @@
 KERNELFLINGER_LOCAL_PATH := $(call my-dir)
 KERNELFLINGER_CFLAGS := -Wa,--noexecstack -Wall -Wextra -Werror -mrdrnd -fwrapv
 
+ifeq (clang, $(findstring clang, $(IAFW_CC)))
+L_CC = $(IAFW_CC)
+CC_VERSION = $(shell $(L_CC) --version)
+# Clang support "-fno-delete-null-pointer-checks flags" when (version > 6)
+MAJOR_VER := $(shell echo '$(CC_VERSION)' |\
+               head -1 |\
+               sed -n 's/.*clang version \([[:digit:]]\.[[:digit:]]\.[[:digit:]]\).*/\1/p' |\
+               head -c 1)
+
+ifeq ($(shell test $(MAJOR_VER) -gt 6; echo $$?), 0)
+KERNELFLINGER_CFLAGS += -fno-delete-null-pointer-checks
+endif
+endif
+
 ifeq ($(KERNELFLINGER_NON-ANDROID),true)
 KERNELFLINGER_CFLAGS += -DFASTBOOT_FOR_NON_ANDROID
 endif
