@@ -122,6 +122,7 @@ static EFI_STATUS write_attkb_data_real(UINT8 *start_kb_addr, UINTN write_sz)
 exit:
 	//clear the rpmb key
 	memset(rpmb_key, 0, sizeof(rpmb_key));
+	barrier();
 #endif
 	return ret;
 }
@@ -192,6 +193,7 @@ exit:
 	//information before free the memory
 	memset(data, 0, size);
 	memset(start_kb_addr, 0, total_sz);
+	barrier();
 	FreePool(start_kb_addr);
 	return ret;
 }

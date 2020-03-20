@@ -288,7 +288,7 @@ EFI_STATUS verify_vbmeta_ias(CHAR16 *label, CHAR16* fileName, BOOLEAN* verify_pa
 		return ret;
 
 	ret = uefi_read_file(io, fileName, &iasimage, &size);
-	if (EFI_ERROR(ret)) {
+	if (EFI_ERROR(ret) || iasimage == NULL) {
 		efi_perror(ret, L"Failed to read %s",fileName);
 		return ret;
 	}

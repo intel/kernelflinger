@@ -567,6 +567,7 @@ static enum boot_target check_command_line(EFI_HANDLE image, CHAR8 *cmd_buf, UIN
 					debug(L"abl_rpmb_key addr is 0x%x", num);
 					set_rpmb_derived_key_ex((VOID *)num, RPMB_KEY_SIZE, 1, 1);
 					memset((VOID *)num, 0, RPMB_KEY_SIZE);
+					barrier();
 					continue;
 #endif //RPMB_STORAGE
 				/* Parse "ABL.secureboot=x" */

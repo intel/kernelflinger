@@ -167,12 +167,14 @@ void clear_rpmb_key(void)
 {
 	if (derived_key && number_derived_key) {
 		memset(derived_key, 0, number_derived_key * RPMB_KEY_SIZE);
+		barrier();
 		number_derived_key = 0;
 		FreePool(derived_key);
 		derived_key = NULL;
 	}
 
 	memset(rpmb_key, 0, RPMB_KEY_SIZE);
+	barrier();
 }
 
 void set_rpmb_key(UINT8 *key)
@@ -741,6 +743,7 @@ EFI_STATUS rpmb_key_init(void)
 
 err_get_rpmb_key:
 	memset(key, 0, sizeof(key));
+	barrier();
 
 	return ret;
 }

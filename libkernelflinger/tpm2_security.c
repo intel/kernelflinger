@@ -712,6 +712,7 @@ out:
 	// Maybe be optimized?
 	memset(trusty_seed.buffer, 0, TRUSTY_SEED_SIZE);
 	memset(read_seed, 0, TRUSTY_SEED_SIZE);
+	barrier();
 	return ret;
 }
 
@@ -764,6 +765,7 @@ EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE])
 
 out:
 	memset(seed, 0, TRUSTY_SEED_SIZE);
+	barrier();
 	return ret;
 }
 
@@ -1021,7 +1023,12 @@ EFI_STATUS tpm2_init(void)
 	if (EFI_ERROR(ret))
 		return ret;
 
-	return tpm2_check_trusty_seed_index();
+	ret = tpm2_check_trusty_seed_index();
+	if (EFI_ERROR(ret))
+		return ret;
+
+	debug(L"TPM init OK. Secure boot ENABLED.");
+	return ret;
 }
 
 EFI_STATUS tpm2_end(void)

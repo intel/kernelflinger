@@ -34,7 +34,7 @@ Tpm2SubmitCommand (
   EFI_TCG2_PROTOCOL *mTcg2Protocol;
 
  Status = LibLocateProtocol (&gEfiTcg2ProtocolGuid, (void **) &mTcg2Protocol);
-    if (EFI_ERROR (Status)) {
+    if (EFI_ERROR (Status) || mTcg2Protocol == NULL ) {
       //
       // Tcg2 protocol is not installed. So, TPM2 is not present.
       //

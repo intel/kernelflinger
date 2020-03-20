@@ -838,3 +838,10 @@ void perror ( const char * str )
 	error(L"%a: errno=%d", str, errno);
 }
 
+int printf(int fd, int cmd, ... /* arg */ )
+       __attribute__((weak));
+int printf(int fd, int cmd, ... /* arg */ )
+{
+       error(L"Error: STUBBED %a", __func__);
+       return -1;
+}

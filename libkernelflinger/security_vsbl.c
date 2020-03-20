@@ -115,6 +115,7 @@ EFI_STATUS parse_rpmb_key_from_boot_param(IN VOID * boot_param)
 						num_rpmb_key++;
 					}
 					memset(RpmbSeedInfo, 0x0, RPMB_KEY_SIZE);
+					barrier();
 				}
 				debug(L"Increment SeedEntryData Pointer to point to next seed entry");
 				SeedEntryData  = (seed_entry_t *)((UINT8 *)SeedEntryData + SeedEntryData->SeedEntrySize);

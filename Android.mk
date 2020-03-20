@@ -1,5 +1,19 @@
 KERNELFLINGER_LOCAL_PATH := $(call my-dir)
-KERNELFLINGER_CFLAGS := -Wall -Wextra -Werror -mrdrnd
+KERNELFLINGER_CFLAGS := -Wa,--noexecstack -Wall -Wextra -Werror -mrdrnd -fwrapv
+
+ifeq (clang, $(findstring clang, $(IAFW_CC)))
+L_CC = $(IAFW_CC)
+CC_VERSION = $(shell $(L_CC) --version)
+# Clang support "-fno-delete-null-pointer-checks flags" when (version > 6)
+MAJOR_VER := $(shell echo '$(CC_VERSION)' |\
+               head -1 |\
+               sed -n 's/.*clang version \([[:digit:]]\.[[:digit:]]\.[[:digit:]]\).*/\1/p' |\
+               head -c 1)
+
+ifeq ($(shell test $(MAJOR_VER) -gt 6; echo $$?), 0)
+KERNELFLINGER_CFLAGS += -fno-delete-null-pointer-checks
+endif
+endif
 
 ifeq ($(KERNELFLINGER_NON-ANDROID),true)
 KERNELFLINGER_CFLAGS += -DFASTBOOT_FOR_NON_ANDROID
@@ -7,7 +21,9 @@ endif
 
 KERNELFLINGER_CFLAGS += -DAVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED
 
-TARGET_USE_TPM := true
+ifeq ($(PRODUCT_NAME),caas)
+TARGET_USE_TPM ?= true
+endif
 
 ifeq ($(TARGET_UEFI_ARCH),x86_64)
     KERNELFLINGER_CFLAGS += -D__STDC_VERSION__=199901L
@@ -176,7 +192,7 @@ VERITY_CERT := $(kf_intermediates)/verity.cer
 PADDED_VERITY_CERT := $(kf_intermediates)/verity.padded.cer
 OEMCERT_OBJ := $(kf_intermediates)/oemcert.o
 
-$(VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem $(OPENSSL)
+$(VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem
 	$(transform-pem-cert-to-der-cert)
 
 $(PADDED_VERITY_CERT): $(VERITY_CERT)
@@ -414,7 +430,7 @@ ABL_VERITY_CERT := $(keys4abl_intermediates)/verity.cer
 ABL_PADDED_VERITY_CERT := $(keys4abl_intermediates)/verity.padded.cer
 ABL_OEMCERT_OBJ := $(keys4abl_intermediates)/oemcert.o
 
-$(ABL_VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem $(OPENSSL)
+$(ABL_VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem
 	$(transform-pem-cert-to-der-cert)
 
 $(ABL_PADDED_VERITY_CERT): $(ABL_VERITY_CERT)
@@ -566,7 +582,7 @@ CIC_VERITY_CERT := $(keys4cic_intermediates)/verity.cer
 CIC_PADDED_VERITY_CERT := $(keys4cic_intermediates)/verity.padded.cer
 CIC_OEMCERT_OBJ := $(keys4cic_intermediates)/oemcert.o
 
-$(CIC_VERITY_CERT): $(INTEL_PATH_BUILD)/testkeys/xbl_default.x509.pem $(OPENSSL)
+$(CIC_VERITY_CERT): $(INTEL_PATH_BUILD)/testkeys/xbl_default.x509.pem
 	$(transform-pem-cert-to-der-cert)
 
 $(CIC_PADDED_VERITY_CERT): $(CIC_VERITY_CERT)
