@@ -52,6 +52,10 @@
 #include "trusty_interface.h"
 #endif
 
+#ifdef USE_TPM
+#include "tpm2_security.h"
+#endif
+
 #define SYSTEMD_BOOT_FILE L"loaderx64.efi"
 #define TOS_IMAGE_FILE    L"tos.img"
 #define VBMETA_IAS_FILE   L"vbmeta.ias"
@@ -250,6 +254,16 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	if (EFI_ERROR(ret) || !verify_pass)
 		return ret;
 
+#ifdef USE_TPM
+	if (is_platform_secure_boot_enabled()) {
+		ret = tpm2_init();
+		if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
+			error(L"Failed to init TPM");
+			return ret;
+		}
+	}
+#endif
+
 #ifdef RPMB_STORAGE
 	ret = set_device_security_info(NULL);
 	if (EFI_ERROR(ret))
@@ -280,6 +294,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	ret = load_and_start_tos(image);
 	if (EFI_ERROR(ret))
 		return ret;
+#endif
+
+#ifdef USE_TPM
+	// Make sure the TPM2 is ended
+	tpm2_end();
 #endif
 
 	ret = start_systemd_boot(image);
