@@ -54,16 +54,11 @@ BOOLEAN mXdciRun = FALSE;
 VOID
 XhciSwitchSwid(BOOLEAN enable)
 {
-  UINTN                             XhciPciMmBase;
-  EFI_PHYSICAL_ADDRESS              XhciMemBaseAddress;
   UINT32                            DualRoleCfg0;
   UINT32                            DualRoleCfg1;
 
-  XhciPciMmBase = MmPciAddress (0, 0, xhci_path.Device, xhci_path.Function, 0);
-  XhciMemBaseAddress = MmioRead32 ((UINTN) (XhciPciMmBase + R_XHCI_MEM_BASE)) & B_XHCI_MEM_BASE_BA;
-  DEBUG ((DEBUG_INFO, "XhciPciMmBase=%x, XhciMemBaseAddress=%x\n", XhciPciMmBase, XhciMemBaseAddress));
 
-  DualRoleCfg0 = MmioRead32 ((UINTN)(XhciMemBaseAddress + R_XHCI_MEM_DUAL_ROLE_CFG0));
+  DualRoleCfg0 = MmioRead32 ((UINTN)(XhciMmioBarAddr + R_XHCI_MEM_DUAL_ROLE_CFG0));
   if (enable) {
     DualRoleCfg0 = DualRoleCfg0 | (1 << 24) | (1 << 21) | (1 << 20);
     DEBUG ((DEBUG_INFO, "DualRoleCfg0 : Set SW ID : 0x%x \n", DualRoleCfg0));
@@ -72,9 +67,9 @@ XhciSwitchSwid(BOOLEAN enable)
     DualRoleCfg0 = DualRoleCfg0 & ~(1 << 24) & ~(1 << 21) & ~(1 << 20);
     DEBUG ((DEBUG_INFO, "DualRoleCfg0 : Clear SW ID : 0x%x \n", DualRoleCfg0));
   }
-  MmioWrite32 ((UINTN)(XhciMemBaseAddress + R_XHCI_MEM_DUAL_ROLE_CFG0), DualRoleCfg0);
+  MmioWrite32 ((UINTN)(XhciMmioBarAddr + R_XHCI_MEM_DUAL_ROLE_CFG0), DualRoleCfg0);
 
-  DualRoleCfg1 = MmioRead32 ((UINTN)(XhciMemBaseAddress + R_XHCI_MEM_DUAL_ROLE_CFG1));
+  DualRoleCfg1 = MmioRead32 ((UINTN)(XhciMmioBarAddr + R_XHCI_MEM_DUAL_ROLE_CFG1));
   DEBUG ((DEBUG_INFO, "DualRoleCfg1 : 0x%x \n", DualRoleCfg1));
 }
 
@@ -130,14 +125,14 @@ UsbdMonitorEvents (
 **/
 EFI_STATUS
 UsbdInit (
-  IN UINT32    MmioBar,
+  IN UINTN     MmioBar,
   IN VOID      **XdciHndl
   )
 {
   EFI_STATUS               Status = EFI_DEVICE_ERROR;
   USB_DEV_CONFIG_PARAMS    ConfigParams;
 
-  XhciSwitchSwid(TRUE);
+//  XhciSwitchSwid(TRUE);
 
   DEBUG ((DEBUG_INFO, "UsbdInit start\n"));
   ConfigParams.ControllerId = USB_ID_DWC_XDCI;
@@ -148,7 +143,7 @@ UsbdInit (
   Status = UsbDeviceInit (&ConfigParams, XdciHndl);
 
   DEBUG ((DEBUG_INFO, "UsbdInit status is %x\n", Status));
-  DEBUG ((DEBUG_INFO, "ConfigParams.BaseAddress 0x%x\n", ConfigParams.BaseAddress));
+  DEBUG ((DEBUG_INFO, "ConfigParams.BaseAddress 0x%016lx\n", ConfigParams.BaseAddress));
 
   return Status;
 }
@@ -414,7 +409,6 @@ UsbdConnDoneEvtHndlr (
   EFI_STATUS    Status = EFI_DEVICE_ERROR;
 
   DEBUG ((DEBUG_INFO, "UsbdConnDoneEvtHndlr\n"));
-
   //
   //reset device address to 0
   //
@@ -1379,7 +1373,7 @@ UsbDeviceInitXdci (
       //
       // Initialize the device controller interface
       //
-      if (UsbdInit ((UINT32)XdciDevContext->XdciMmioBarAddr, &mDrvObj.XdciDrvObj) == EFI_SUCCESS) {
+      if (UsbdInit (XdciDevContext->XdciMmioBarAddr, &mDrvObj.XdciDrvObj) == EFI_SUCCESS) {
 
         //
         // Setup callbacks

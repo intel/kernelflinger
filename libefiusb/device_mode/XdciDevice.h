@@ -20,7 +20,7 @@
 //
 typedef struct {
   USB_CONTROLLER_ID  ControllerId; // Controller ID of the core
-  UINT32             BaseAddress;  // Base address of the controller registers and on-chip memory
+  UINT64             BaseAddress;  // Base address of the controller registers and on-chip memory
   UINT32             Flags;        // Initialization flags
   USB_SPEED          Speed;        // Desired USB bus Speed
   USB_ROLE           Role;         // Default USB role

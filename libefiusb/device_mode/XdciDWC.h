@@ -31,8 +31,15 @@
 #define DWC_XDCI_TRB_NUM                                   (32)
 #define DWC_XDCI_MASK                                      (DWC_XDCI_TRB_NUM - 1)
 
+/* TODO: Platform-specific define. Later move it to platform-specific
+ *  header file
+ *   */
 #define DWC_XDCI_MAX_DELAY_ITERATIONS                      (1000)
 
+/* Top-level register offsets from base address */
+#define DWC_XDCI_GLOBAL_REG_OFFSET                         (0xC100)
+#define DWC_XDCI_DEVICE_REG_OFFSET                         (0xC700)
+#define DWC_XDCI_OTG_BC_REG_OFFSET                         (0xCC00)
 #define DWC_XDCI_GSBUSCFG0_REG                             (0xC100)
 #define DWC_XDCI_GSBUSCFG1_REG                             (0xC104)
 #define DWC_XDCI_GTXTHRCFG_REG                             (0xC108)
@@ -446,6 +453,7 @@ typedef enum {
 } DWC_XDCI_TRB_CONTROL;
 
 //
+#pragma pack (1)
 // DWC XDCI Endpoint Commands Parameters struct
 //
 typedef struct {
@@ -484,6 +492,7 @@ typedef struct  {
   USB_EP_STATE      OrgState;
   BOOLEAN           CheckFlag;
 } DWC_XDCI_ENDPOINT;
+#pragma pack ()
 
 typedef struct {
   //
@@ -518,7 +527,7 @@ typedef struct {
   USB_ROLE                 Role;                                                // Desired role i.e. host, Device or OTG
   USB_SPEED                ActualSpeed;                                         // Actual Speed
   USB_DEVICE_STATE         DevState;                                            // Device state
-  UINT32                   BaseAddress;                                         // Register Base address
+  UINTN                    BaseAddress;                                         // Register Base address
   UINT32                   Flags;                                               // Init flags
   UINT32                   MaxDevIntLines;                                      // One event Buffer per interrupt line
   DWC_XDCI_EVENT_BUFFER    EventBuffers [DWC_XDCI_MAX_EVENTS_PER_BUFFER * 2];   // Event Buffer pool
@@ -722,13 +731,13 @@ UsbGetPhysicalEpNum (
 
 UINT32
 UsbRegRead (
-  IN UINT32    Base,
+  IN UINTN     Base,
   IN UINT32    Offset
   );
 
 VOID
 UsbRegWrite (
-  IN UINT32    Base,
+  IN UINTN     Base,
   IN UINT32    Offset,
   IN UINT32    val
   );

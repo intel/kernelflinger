@@ -194,7 +194,7 @@ static EFI_STATUS nvme_erase_blocks(
 	 * this work to the following fill_zero
 	 */
 	if (is_UEFI())
-		return EFI_UNSUPPORTED;
+		return EFI_SUCCESS;
 
 	debug(L"nvme_erase_blocks: 0x%X blocks", end - start + 1);
 	dp = DevicePathFromHandle(handle);

@@ -16,6 +16,7 @@
 #include <vars.h>
 
 #include "XdciUtility.h"
+#include "UsbDeviceMode.h"
 
 VOID
 PrintDeviceDescriptor (
@@ -131,7 +132,7 @@ PrintDeviceRequest (
   DEBUG ((DEBUG_INFO, "Length      : 0x%x\n", DevReq->Length));
   DEBUG ((DEBUG_INFO, "\n"));
 }
-
+#ifdef SUPPORT_SUPER_SPEED
 VOID
 PrintBOSDescriptor (
   IN __attribute__((unused)) EFI_USB_BOS_DESCRIPTOR    *BosDesc
@@ -144,4 +145,4 @@ PrintBOSDescriptor (
   DEBUG ((DEBUG_INFO, "NumDeviceCaps    : 0x%x\n", BosDesc->NumDeviceCaps));
   DEBUG ((DEBUG_INFO, "\n"));
 }
-
+#endif

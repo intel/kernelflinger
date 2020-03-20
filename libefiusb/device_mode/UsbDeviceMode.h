@@ -17,8 +17,7 @@
 #include "protocol/UsbIo.h"
 #include "protocol/UsbDeviceModeProtocol.h"
 
-
-///
+////
 /// Function declaration
 ///
 EFI_STATUS
@@ -27,6 +26,5 @@ UsbdSetupHdlr (
   );
 
 extern EFI_USB_DEVICE_MODE_PROTOCOL  mUsbDeviceModeProtocol;
-
 #endif
 

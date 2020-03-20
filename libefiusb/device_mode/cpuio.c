@@ -152,6 +152,7 @@ UINT32 MmioWrite32(UINTN add, UINT32 data)
 		efi_perror(ret, L"Fail to  write data to 0x%x", add);
 		return 0xFFFFFFFF;
 	}
+	efi_perror(EFI_SUCCESS, L"write data 0x%x to 0x%016lx", data, add);
 
 	return data;
 }

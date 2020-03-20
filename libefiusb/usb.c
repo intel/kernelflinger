@@ -44,17 +44,17 @@
 #define CONFIG_COUNT            1
 #define INTERFACE_COUNT         1
 #define ENDPOINT_COUNT          2
-#define CFG_MAX_POWER           0x00	/* Max power consumption of
+#define CFG_MAX_POWER           100	/* Max power consumption of
 					   the USB device from the bus
 					   for this config */
-#define IF_SUBCLASS          	0x00	/* Default subclass */
-#define IF_PROTOCOL          	0x00	/* Default protocol */
+#define IF_SUBCLASS          	66	/* Default subclass */
+#define IF_PROTOCOL          	1	/* Default protocol */
 #define IN_ENDPOINT_NUM         1
 #define OUT_ENDPOINT_NUM        2
 #define BULK_EP_PKT_SIZE     	USB_BULK_EP_PKT_SIZE_HS	/* default to using high speed */
 #define VENDOR_ID               0x8087	/* Intel Inc. */
 #define PRODUCT_ID		0x09EF
-#define BCD_DEVICE		0x0100
+#define BCD_DEVICE		0
 
 static data_callback_t		rx_callback  = NULL;
 static data_callback_t		tx_callback  = NULL;
@@ -96,6 +96,7 @@ static USB_STRING_DESCRIPTOR string_table[] = {
 };
 
 /* Complete Configuration structure */
+#ifndef SUPPORT_SUPER_SPEED
 struct config_descriptor {
 	EFI_USB_CONFIG_DESCRIPTOR    config;
 	EFI_USB_INTERFACE_DESCRIPTOR interface;
@@ -131,7 +132,7 @@ static struct config_descriptor config_descriptor = {
 		IN_ENDPOINT_NUM | USB_ENDPOINT_DIR_IN,
 		USB_ENDPOINT_BULK,
 		BULK_EP_PKT_SIZE,
-		0x00 /* Not specified for bulk endpoint */
+		0x00, /* Not specified for bulk endpoint */
 	},
 	.ep_out = {
 		sizeof(EFI_USB_ENDPOINT_DESCRIPTOR),
@@ -139,9 +140,10 @@ static struct config_descriptor config_descriptor = {
 		OUT_ENDPOINT_NUM | USB_ENDPOINT_DIR_OUT,
 		USB_ENDPOINT_BULK,
 		BULK_EP_PKT_SIZE,
-		0x00 /* Not specified for bulk endpoint */
-	}
+		0x00, /* Not specified for bulk endpoint */
+	},
 };
+#endif
 
 static USB_DEVICE_DESCRIPTOR device_descriptor = {
 	sizeof(USB_DEVICE_DESCRIPTOR),
@@ -159,6 +161,98 @@ static USB_DEVICE_DESCRIPTOR device_descriptor = {
 	STR_TBL_SERIAL,
 	CONFIG_COUNT
 };
+
+#ifdef SUPPORT_SUPER_SPEED
+/* usb 3.0 root hub device descriptor */
+
+struct config_descriptor {
+	EFI_USB_CONFIG_DESCRIPTOR    config;
+	EFI_USB_INTERFACE_DESCRIPTOR interface;
+	EFI_USB_ENDPOINT_DESCRIPTOR  ep_in;
+	EFI_USB_ENDPOINT_COMPANION_DESCRIPTOR    ep_comp_in;
+	EFI_USB_ENDPOINT_DESCRIPTOR  ep_out;
+	EFI_USB_ENDPOINT_COMPANION_DESCRIPTOR    ep_comp_out;
+} __attribute__((packed));
+
+static struct config_descriptor config_descriptor = {
+	.config = {
+		sizeof(EFI_USB_CONFIG_DESCRIPTOR),
+		USB_DESC_TYPE_CONFIG,
+		sizeof(struct config_descriptor),
+		INTERFACE_COUNT,
+		1,
+		STR_TBL_CONFIG,
+		USB_BM_ATTR_RESERVED,
+		CFG_MAX_POWER
+	},
+	.interface = {
+		sizeof(EFI_USB_INTERFACE_DESCRIPTOR),
+		USB_DESC_TYPE_INTERFACE,
+		0x0,
+		0x0,
+		ENDPOINT_COUNT,
+		USB_DEVICE_VENDOR_CLASS,
+		IF_SUBCLASS,
+		IF_PROTOCOL,
+		STR_TBL_INTERFACE
+	},
+	.ep_in = {
+		sizeof(EFI_USB_ENDPOINT_DESCRIPTOR),
+		USB_DESC_TYPE_ENDPOINT,
+		IN_ENDPOINT_NUM | USB_ENDPOINT_DIR_IN,
+		USB_ENDPOINT_BULK,
+		USB_BULK_EP_PKT_SIZE_SS,
+		0x00, /* Not specified for bulk endpoint */
+	},
+	.ep_comp_in = {
+		sizeof(EFI_USB_ENDPOINT_COMPANION_DESCRIPTOR),
+		USB_DESC_TYPE_SS_ENDPOINT_COMPANION,
+		0x04,
+		0x00,
+		0x00
+	},
+	.ep_out = {
+		sizeof(EFI_USB_ENDPOINT_DESCRIPTOR),
+		USB_DESC_TYPE_ENDPOINT,
+		OUT_ENDPOINT_NUM | USB_ENDPOINT_DIR_OUT,
+		USB_ENDPOINT_BULK,
+		USB_BULK_EP_PKT_SIZE_SS,
+		0x00, /* Not specified for bulk endpoint */
+	},
+	.ep_comp_out = {
+		sizeof(EFI_USB_ENDPOINT_COMPANION_DESCRIPTOR),
+		USB_DESC_TYPE_SS_ENDPOINT_COMPANION,
+		0x04,
+		0x00,
+		0x00
+	}
+};
+
+struct usb_bos_descriptor {
+	EFI_USB_BOS_DESCRIPTOR bos;
+	EFI_USB_SS_USB_DEV_CAP_DESCRIPTOR ss_cap;
+} __attribute__((packed));
+
+static struct usb_bos_descriptor bos_descriptor = {
+
+	.bos = {
+		.Length		= sizeof(EFI_USB_BOS_DESCRIPTOR),
+		.DescriptorType	= USB_DESC_TYPE_BOS,
+		.TotalLength		= sizeof(struct usb_bos_descriptor),
+		.NumDeviceCaps		= 1,
+	},
+	.ss_cap = {
+		.Length		=  sizeof(EFI_USB_SS_USB_DEV_CAP_DESCRIPTOR),
+		.DescriptorType	= USB_DESC_TYPE_DEVICE_CAPABILITY,
+		.DeviceCapabilityType	= SuperSpeedUSB,
+		.Attributes = 0,
+		.SpeedSupported	= 0x000f,
+		.FunctionalitySupport	= 1,
+		.U1DevExitLat = 1,
+		.U2DevExitLat =500,
+	},
+};
+#endif
 
 EFI_STATUS usb_write(void *buf, UINT32 size)
 {
@@ -204,9 +298,21 @@ EFI_STATUS usb_read(void *buf, UINT32 size)
 static EFIAPI EFI_STATUS setup_handler(__attribute__((__unused__)) EFI_USB_DEVICE_REQUEST *CtrlRequest,
 				       __attribute__((__unused__)) USB_DEVICE_IO_INFO *IoInfo)
 {
+	short version;
 
-	/* Does not handle any Class/Vendor specific setup requests */
+	if (IoInfo == NULL || CtrlRequest == NULL)
+		return EFI_UNSUPPORTED;
 
+	switch (CtrlRequest->Request) {
+		case 0x33: // Android Open Accessory (AOA) protocol
+			version = 0x02;
+			IoInfo->Length = sizeof(version);
+			CopyMem (IoInfo->Buffer, &version, IoInfo->Length);
+			break;
+		default:
+			error(L"Unknown Class/Vendor setup 0x%x", CtrlRequest->Request);
+			break;
+	}
 	return EFI_SUCCESS;
 }
 
@@ -347,9 +453,16 @@ static void init_driver_objs(UINT8 subclass,
 	/* Endpoint Data In/Out objects */
 	gEndpointObjs[0].EndpointDesc      = &config_descriptor.ep_in;
 	gEndpointObjs[0].EndpointCompDesc  = NULL;
-
 	gEndpointObjs[1].EndpointDesc      = &config_descriptor.ep_out;
 	gEndpointObjs[1].EndpointCompDesc  = NULL;
+
+#ifdef SUPPORT_SUPER_SPEED
+	device_descriptor.BcdUSB	   = USB_BCD_VERSION_SS;
+	gDevObj.BosDesc                    = &bos_descriptor.bos;
+	gEndpointObjs[0].EndpointCompDesc  = &config_descriptor.ep_comp_in;
+	gEndpointObjs[1].EndpointCompDesc  = &config_descriptor.ep_comp_out;
+#endif
+
 }
 
 EFI_STATUS usb_start(UINT8 subclass, UINT8 protocol,
@@ -357,7 +470,7 @@ EFI_STATUS usb_start(UINT8 subclass, UINT8 protocol,
 		     start_callback_t start_cb, data_callback_t rx_cb,
 		     data_callback_t tx_cb)
 {
-	EFI_STATUS ret;
+	EFI_STATUS ret = EFI_UNSUPPORTED;
 
 	if (!str_configuration || !str_interface || !start_cb || !rx_cb || !tx_cb)
 		return EFI_INVALID_PARAMETER;
@@ -366,6 +479,7 @@ EFI_STATUS usb_start(UINT8 subclass, UINT8 protocol,
 	rx_callback = rx_cb;
 	tx_callback = tx_cb;
 
+#ifndef USE_SELF_USB_DEVICE_MODE_PROTOCOL
 	ret = LibLocateProtocol(&gEfiUsbDeviceModeProtocolGuid, (void **)&usb_device);
 	if (EFI_ERROR(ret) || !usb_device) {
 		efi_perror(ret, L"Can't locate USB device mode protocol in BIOS");
@@ -374,7 +488,7 @@ EFI_STATUS usb_start(UINT8 subclass, UINT8 protocol,
 		if (EFI_ERROR(ret))
 			efi_perror(ret, L"Init USB xDCI failed");
 	}
-
+#endif
 	if (EFI_ERROR(ret)) {
 #ifdef USE_SELF_USB_DEVICE_MODE_PROTOCOL
 		debug(L"Trying self implemented USB device mode protocol");

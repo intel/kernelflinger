@@ -19,8 +19,9 @@
 #include "UsbDeviceMode.h"
 #include "XdciDWC.h"
 
-static EFI_HANDLE xdci = 0;
+static EFI_HANDLE xdci_handle = 0, xhci_handle = 0;
 PCI_DEVICE_PATH xhci_path = {.Device = -1, .Function = -1};
+UINTN XhciMmioBarAddr = 0;
 
 VOID
 EFIAPI
@@ -28,22 +29,75 @@ PlatformSpecificInit (
   VOID
   )
 {
-  UINTN                 XhciPciMmBase;
-  EFI_PHYSICAL_ADDRESS  XhciMemBaseAddress;
+  EFI_STATUS  Status;
+  UINT32      XhciMmioBarHigh = 0;
+  EFI_PCI_IO  *PciIo;
+  UINT32      BitValue;
+  UINT32      BitMask;
+  UINT16      DelayTime = 10000;
+  UINT16      LoopTime;
 
-  XhciPciMmBase   = MmPciAddress (
-                      0,
-                      0,
-                      xhci_path.Device,
-                      xhci_path.Function,
-                      0
-                      );
+  // Provide protocol interface
+  // Get the PCI I/O Protocol on PciHandle
+  Status = uefi_call_wrapper(BS->OpenProtocol,
+		   6,
+		   xhci_handle,
+		   &PciIoProtocol,
+		   (VOID **) &PciIo,
+		   g_parent_image,
+		   xhci_handle,
+		   EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+  if (EFI_ERROR (Status)) {
+	goto ErrorExit1;
+  }
 
+  Status = uefi_call_wrapper(PciIo->Pci.Read,
+		   5,
+		   PciIo,
+		   EfiPciIoWidthUint32,
+		   R_XHCI_BAR0,
+		   1,
+		   &XhciMmioBarAddr);
+  if (EFI_ERROR (Status)) {
+	goto ErrorExit1;
+  }
+  if ((XhciMmioBarAddr & B_XHCI_BAR0_TYPE) == B_XHCI_BAR0_64_BIT) {
+	  Status = uefi_call_wrapper(PciIo->Pci.Read,
+			   5,
+			   PciIo,
+			   EfiPciIoWidthUint32,
+			   R_XHCI_BAR_HIGH,
+			   1,
+			   &XhciMmioBarHigh);
+  }
+  if (EFI_ERROR (Status)) {
+	goto ErrorExit1;
+  }
+  XhciMmioBarAddr = ((UINT64) XhciMmioBarHigh << 32) | XhciMmioBarAddr;
+  XhciMmioBarAddr &= B_XHCI_MEM_BASE_BA;
 
-  XhciMemBaseAddress = MmioRead32 ((UINTN) (XhciPciMmBase + R_XHCI_MEM_BASE)) & B_XHCI_MEM_BASE_BA;
-  DEBUG ((DEBUG_INFO, "XhciPciMmBase=%x, XhciMemBaseAddress=%x\n", XhciPciMmBase, XhciMemBaseAddress));
+  DEBUG ((DEBUG_INFO, "XhciMmioBarAddr=0x%016lx\n",  XhciMmioBarAddr));
 
-  MmioWrite32 ((UINTN)(XhciMemBaseAddress + R_XHCI_MEM_DUAL_ROLE_CFG0), 0x1310800);
+  //
+  // Step 1: Enable OTG device Mode
+  //
+  MmioWrite32 ((UINTN)(XhciMmioBarAddr + R_XHCI_MEM_DUAL_ROLE_CFG0), 0x1310800);
+
+  //
+   // Step 2: 0x80DC register, has a status bit to acknowledge the role change in Bit 29
+   //
+  BitMask	= (UINT32) (0x20000000);
+  BitValue = (UINT32) (1 << 29);
+
+  for (LoopTime = 0; LoopTime < DelayTime; LoopTime++) {
+	 if ((MmioRead32 ((UINTN)(XhciMmioBarAddr + R_XHCI_MEM_DUAL_ROLE_CFG1)) & BitMask) == (BitValue & BitMask)) {
+	   break;
+	 } else {
+	   uefi_call_wrapper(BS->Stall, 1, 100);
+	 }
+  }
+
+ErrorExit1:
 
   return;
 }
@@ -132,6 +186,7 @@ static EFI_STATUS find_usb_device_controller (EFI_HANDLE Controller)
              &fun);
     xhci_path.Device = (UINT8)dev;
     xhci_path.Function = (UINT8)fun;
+	xhci_handle = Controller;
   }
 
   return EFI_UNSUPPORTED;
@@ -145,6 +200,7 @@ static EFI_STATUS usb_device_mode_start (EFI_HANDLE Controller, EFI_USB_DEVICE_M
   USB_XDCI_DEV_CONTEXT *UsbXdciDevContext = NULL;
   EFI_PCI_IO *PciIo;
   EFI_EVENT ExitBootServicesEvent;
+  UINT32                XdciMmioBarHigh = 0;
 
   // Provide protocol interface
   // Get the PCI I/O Protocol on PciHandle
@@ -179,25 +235,46 @@ static EFI_STATUS usb_device_mode_start (EFI_HANDLE Controller, EFI_USB_DEVICE_M
            R_OTG_BAR0,
            1,
            &UsbXdciDevContext->XdciMmioBarAddr);
-  UsbXdciDevContext->XdciMmioBarAddr &= B_OTG_BAR0_BA;
 
-  UINT16 command = 0x6;
+  if ((UsbXdciDevContext->XdciMmioBarAddr & B_OTG_BAR0_TYPE) == B_OTG_BAR0_64_BIT) {
+	  Status = uefi_call_wrapper(PciIo->Pci.Read,
+	           5,
+	           PciIo,
+	           EfiPciIoWidthUint32,
+	           R_OTG_BAR_HIGH,
+	           1,
+	           &XdciMmioBarHigh);
+  }
+
+  UsbXdciDevContext->XdciMmioBarAddr = ((UINT64) XdciMmioBarHigh << 32) | (UsbXdciDevContext->XdciMmioBarAddr & B_OTG_BAR0_BA);
+  DEBUG ((EFI_D_INFO, "USB DEV mode IO addr 0x%016lx\n", UsbXdciDevContext->XdciMmioBarAddr));
+
+  UINT8  command8 = 0x6;
   Status = uefi_call_wrapper(PciIo->Pci.Write,
            5,
            PciIo,
-           EfiPciIoWidthUint16,
+           EfiPciIoWidthUint8,
            R_XDCI_CMD_OFF,
            1,
-           &command);
+           &command8);
   //read after write to ensure the former write take effect
-  command = 0;
+  command8 = 0;
   Status = uefi_call_wrapper(PciIo->Pci.Read,
            5,
            PciIo,
-           EfiPciIoWidthUint16,
+           EfiPciIoWidthUint8,
            R_XDCI_CMD_OFF,
            1,
-           &command);
+           &command8);
+
+  UINT32 command32 = 0;
+  Status = uefi_call_wrapper(PciIo->Pci.Write,
+           5,
+           PciIo,
+           EfiPciIoWidthUint32,
+           R_XDCI_GEN_REGRW1,
+           1,
+           &command32);
 
   CopyMem (&(UsbXdciDevContext->UsbDevModeProtocol),
      &mUsbDeviceModeProtocol,
@@ -253,7 +330,7 @@ static BOOLEAN usb_xdci_enabled(void)
   for (Index=0; Index < NumberHandles; Index++) {
     ret = find_usb_device_controller(Handles[Index]);
     if (!EFI_ERROR(ret)) {
-      xdci = Handles[Index];
+      xdci_handle = Handles[Index];
       break;
     }
   }
@@ -273,10 +350,11 @@ EFI_STATUS init_usb_device_mode_protocol(EFI_USB_DEVICE_MODE_PROTOCOL **usb_devi
   EFI_STATUS ret = EFI_UNSUPPORTED;
 
   if (usb_xdci_enabled()) {
-    ret = usb_device_mode_start(xdci, usb_device);
+    ret = usb_device_mode_start(xdci_handle, usb_device);
   } else {
     efi_perror(ret, L"XDCI is disabled, please enable it in BIOS");
   }
 
   return ret;
 }
+

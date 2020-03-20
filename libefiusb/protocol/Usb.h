@@ -139,6 +139,7 @@ typedef struct {
 	UINT8           Attributes;
 	UINT16          MaxPacketSize;
 	UINT8           Interval;
+/* for super speed, a companion descriptor follows */
 } USB_ENDPOINT_DESCRIPTOR;
 
 ///

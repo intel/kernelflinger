@@ -55,7 +55,7 @@
 //
 #define USB_BCD_VERSION_LS          0x0110
 #define USB_BCD_VERSION_HS          0x0200
-#define USB_BCD_VERSION_SS          0x0300
+#define USB_BCD_VERSION_SS          0x0320
 
 //
 // Device RequestType Flags
@@ -89,8 +89,24 @@
 //
 // USB Descriptor types
 //
-#define USB_DESC_TYPE_SS_ENDPOINT_COMPANION  0x30
 #define USB_DESC_TYPE_BOS                    0x0F
+#define USB_DESC_TYPE_DEVICE_CAPABILITY      0x10
+#define USB_DESC_TYPE_SS_ENDPOINT_COMPANION  0x30
+#pragma pack(1)
+
+#ifdef SUPPORT_SUPER_SPEED
+//
+// USB device capability Type Codes
+// USB3 Table 9-13
+//
+typedef enum {
+  WirelessUSB = 0x01,
+  USB2Extension,
+  SuperSpeedUSB,
+  ContainerID,
+  SuperSpeedPlusUSB = 0x0A
+} USB_DEVICE_CAP_TYPE_CODE;
+#endif
 
 
 //
@@ -125,6 +141,7 @@ typedef struct {
 
 //
 // SuperSpeed Endpoint companion descriptor
+// USB3 table 9-22
 //
 typedef struct {
 	UINT8      Length;
@@ -174,7 +191,85 @@ typedef struct {
 	VOID                          *ConfigAll;
 	USB_DEVICE_INTERFACE_OBJ      *InterfaceObjs;
 } USB_DEVICE_CONFIG_OBJ;
-#pragma pack()
+
+#ifdef SUPPORT_SUPER_SPEED
+//
+// SuperSpeed Binary Device Object Store(BOS) descriptor
+// USB3 9.6.2
+//
+typedef struct {
+  UINT8      Length;
+  UINT8      DescriptorType;
+  UINT16     TotalLength;
+  UINT8      NumDeviceCaps;
+} EFI_USB_BOS_DESCRIPTOR;
+
+//
+// Generic Header of Device Capability descriptor
+// USB3 9.6.2.2
+//
+typedef struct {
+  UINT8      Length;
+  UINT8      DescriptorType;
+  UINT8      DevCapabilityType;
+  UINT8      CapDependent;
+} EFI_USB_SS_DEVICE_CAP_DESCRIPTOR;
+
+//
+// USB2.0 Extension descriptor
+// USB3 Table 9-14
+//
+typedef struct {
+  UINT8      Length;
+  UINT8      DescriptorType;
+  UINT8      DeviceCapabilityType;
+  UINT32     Attributes;
+} EFI_USB_USB2_EXT_CAP_DESCRIPTOR;
+
+
+//
+// SuperSpeed USB Device Capability descriptor
+// USB3 Table 9-15
+//
+typedef struct {
+  UINT8      Length;
+  UINT8      DescriptorType;
+  UINT8      DeviceCapabilityType;
+  UINT8      Attributes;
+  UINT16     SpeedSupported;
+  UINT8      FunctionalitySupport;
+  UINT8      U1DevExitLat;
+  UINT16     U2DevExitLat;
+} EFI_USB_SS_USB_DEV_CAP_DESCRIPTOR;
+
+//
+// Container ID descriptor
+// USB3 Table 9-16
+//
+typedef struct {
+  UINT8      Length;
+  UINT8      DescriptorType;
+  UINT8      DeviceCapabilityType;
+  UINT8      Reserved;
+  UINT8      UUID[16];
+} EFI_USB_CONTAINER_ID_DESCRIPTOR;
+
+//
+// Container ID descriptor
+// USB3 Table 9-16
+//
+typedef struct {
+  UINT8      Length;
+  UINT8      DescriptorType;
+  UINT8      DeviceCapabilityType;
+  UINT8      ReservedByte;
+  UINT32     Attributes;
+  UINT16     FunctionalitySupport;
+  UINT16     ReservedWord;
+  UINT32     SublinkSpeedAttr[2];
+} EFI_USB_SS_PLUS_USB_DEV_CAP_DESCRIPTOR;
+
+#endif
 
 typedef
 EFI_STATUS
@@ -192,16 +287,8 @@ EFI_STATUS
 typedef
 EFI_STATUS
 (EFIAPI *EFI_USB_DATA_CALLBACK) (
-	IN EFI_USB_DEVICE_XFER_INFO   *XferInfo
-	);
-
-#pragma pack(1)
-typedef struct {
-	UINT8      Length;
-	UINT8      DescriptorType;
-	UINT16     TotalLength;
-	UINT8      NumDeviceCaps;
-} EFI_USB_BOS_DESCRIPTOR;
+  IN EFI_USB_DEVICE_XFER_INFO   *XferInfo
+  );
 
 typedef struct {
 	USB_DEVICE_DESCRIPTOR       *DeviceDesc;

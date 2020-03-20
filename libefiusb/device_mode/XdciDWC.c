@@ -21,7 +21,7 @@
 
 UINT32
 UsbRegRead (
-  IN UINT32    Base,
+  IN UINTN     Base,
   IN UINT32    Offset
   )
 {
@@ -31,7 +31,7 @@ UsbRegRead (
 
 VOID
 UsbRegWrite (
-  IN UINT32    Base,
+  IN UINTN     Base,
   IN UINT32    Offset,
   IN UINT32    val
   )
@@ -271,7 +271,7 @@ DwcXdciCoreIssueEpCmd (
   IN DWC_XDCI_ENDPOINT_CMD_PARAMS    *EpCmdParams
   )
 {
-  UINT32 BaseAddr;
+  UINTN  BaseAddr;
   UINT32 MaxDelayIter = 5000;//DWC_XDCI_MAX_DELAY_ITERATIONS;
 
   if (CoreHandle == NULL) {
@@ -342,7 +342,7 @@ DwcXdciCoreFlushAllFifos (
   IN XDCI_CORE_HANDLE    *CoreHandle
   )
 {
-  UINT32 BaseAddr;
+  UINTN  BaseAddr;
   UINT32 MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
 
   if (CoreHandle == NULL) {
@@ -394,7 +394,7 @@ DwcXdciCoreFlushEpTxFifo (
   __attribute__((unused)) UINT32 EpNum
   )
 {
-  UINT32 BaseAddr;
+  UINTN  BaseAddr;
   UINT32 MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
 
   if (CoreHandle == NULL) {
@@ -781,7 +781,7 @@ DwcXdciProcessDeviceResetDone (
   )
 {
   DWC_XDCI_ENDPOINT_CMD_PARAMS    EpCmdParams;
-  UINT32                          BaseAddr;
+  UINTN                           BaseAddr;
   EFI_STATUS                      status = EFI_SUCCESS;
 
   if (CoreHandle == NULL) {
@@ -1168,6 +1168,8 @@ DwcXdciProcessEp0XferPhaseDone (
       if (TrbSts == DWC_XDCI_TRB_STATUS_SETUP_PENDING || TrbBufsize != 0) {
         DEBUG ((DEBUG_INFO, "ERROR: Control transfert aborted by host: Setup pending\n"));
         DwcXdciCoreStartEp0SetupXfer (CoreHandle);
+      } else {
+        DwcXdciEp0ReceiveStatusPkt (CoreHandle);
       }
 
       if (CoreHandle->EventCallbacks.DevXferDoneCallback) {
@@ -1292,6 +1294,7 @@ DwcXdciProcessEpEvent (
   UINT32          EpNum;
   UINT32          epEvent;
   UINT32          epEventStatus;
+  USB_EP_STATE    epState = USB_EP_STATE_DATA;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "ERROR: DwcXdciProcessEpEvent: INVALID handle\n"));
@@ -1335,7 +1338,14 @@ DwcXdciProcessEpEvent (
         //
         DwcXdciProcessEpXferNotReady (CoreHandle, EpNum);
       } else {
-        DwcXdciProcessEp0XferNotReady (CoreHandle, EpNum, epEventStatus);
+        /* Is it data stage or status stage */
+        if (epEventStatus & DWC_XDCI_EVENT_BUFF_EP_CTRL_DATA_REQ_MASK) {
+          epState = USB_EP_STATE_DATA;
+        } else if (epEventStatus & DWC_XDCI_EVENT_BUFF_EP_CTRL_STATUS_REQ_MASK) {
+          epState = USB_EP_STATE_STATUS;
+        }
+        /* Process transfer not ready case */
+        DwcXdciProcessEp0XferNotReady (CoreHandle, EpNum, epState);
       }
       break;
 
@@ -1438,7 +1448,7 @@ DwcXdciCoreInit (
   )
 {
   EFI_STATUS                      status = EFI_DEVICE_ERROR;
-  UINT32                          BaseAddr;
+  UINTN                           BaseAddr;
   XDCI_CORE_HANDLE                *LocalCoreHandle;
   DWC_XDCI_ENDPOINT_CMD_PARAMS    EpCmdParams;
   UINT32                          MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
@@ -1640,13 +1650,13 @@ DwcXdciCoreInit (
   // force into High-Speed mode to aVOID anyone trying this
   // on Super Speed port
   //
-
+#ifdef SUPPORT_SUPER_SPEED
   UsbRegWrite (
     BaseAddr,
     DWC_XDCI_DCFG_REG,
     (UsbRegRead (BaseAddr, DWC_XDCI_DCFG_REG) & ~DWC_XDCI_DCFG_DESIRED_DEV_SPEED_MASK) | LocalCoreHandle->DesiredSpeed
     );
-#if 0
+#else
   UsbRegWrite (
     BaseAddr,
     DWC_XDCI_DCFG_REG,
@@ -2101,7 +2111,7 @@ DwcXdciCoreIsrRoutine (
   )
 {
   XDCI_CORE_HANDLE    *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
-  UINT32              BaseAddr;
+  UINTN               BaseAddr;
   UINT32              eventCount;
   UINT32              ProcessedEventCount;
   UINT32              i;
@@ -2164,7 +2174,7 @@ DwcXdciCoreIsrRoutineTimerBased (
   )
 {
   XDCI_CORE_HANDLE    *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
-  UINT32              BaseAddr;
+  UINTN               BaseAddr;
   UINT32              eventCount;
   UINT32              ProcessedEventCount;
   UINT32              currentEventAddr;
@@ -2240,7 +2250,7 @@ DwcXdciCoreConnect (
 {
   XDCI_CORE_HANDLE    *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
   UINT32              MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
-  UINT32              BaseAddr;
+  UINTN               BaseAddr;
 
   EFI_STATUS ret = EFI_DEVICE_ERROR;
   if (CoreHandle == NULL) {
@@ -2298,7 +2308,7 @@ DwcXdciCoreDisconnect (
 {
   XDCI_CORE_HANDLE  *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
   UINT32            MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
-  UINT32            BaseAddr;
+  UINTN             BaseAddr;
   UINT32            eventCount;
   UINT32            dsts;
   UINT32            i;
@@ -2406,7 +2416,7 @@ DwcXdciCoreSetAddress (
   )
 {
   XDCI_CORE_HANDLE  *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
-  UINT32            BaseAddr;
+  UINTN             BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciCoreSetAddress: INVALID handle\n"));
@@ -2509,7 +2519,7 @@ DwcXdciSetLinkState (
   )
 {
   XDCI_CORE_HANDLE  *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
-  UINT32            BaseAddr;
+  UINTN             BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciSetLinkState: INVALID handle\n"));
@@ -2662,7 +2672,7 @@ DwcXdciEpEnable (
 {
   XDCI_CORE_HANDLE  *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
   UINT32            EpNum;
-  UINT32            BaseAddr;
+  UINTN             BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciEpEnable: INVALID handle\n"));
@@ -2706,7 +2716,7 @@ DwcXdciEpDisable (
 {
   XDCI_CORE_HANDLE  *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
   UINT32            EpNum;
-  UINT32            BaseAddr;
+  UINTN             BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciEpDisable: INVALID handle\n"));
@@ -2870,7 +2880,7 @@ DwcXdciEpSetNrdy (
 {
   XDCI_CORE_HANDLE  *LocalCoreHandle = (XDCI_CORE_HANDLE *)CoreHandle;
   UINT32            EpNum;
-  UINT32            BaseAddr;
+  UINTN             BaseAddr;
   UINT32            MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
 
   if (CoreHandle == NULL) {
@@ -3023,7 +3033,7 @@ DwcXdciEp0ReceiveStatusPkt (
   DWC_XDCI_TRB_CONTROL            TrbCtrl;
   DWC_XDCI_ENDPOINT_CMD_PARAMS    EpCmdParams;
   EFI_STATUS                      Status;
-  UINT32                          BaseAddr;
+  UINTN                           BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciEp0ReceiveStatusPkt: INVALID handle\n"));
@@ -3121,7 +3131,7 @@ DwcXdciEp0SendStatusPkt (
   DWC_XDCI_TRB                    *Trb;
   DWC_XDCI_ENDPOINT_CMD_PARAMS    EpCmdParams;
   EFI_STATUS                      Status;
-  UINT32                          BaseAddr;
+  UINTN                           BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciEp0SendStatusPkt: INVALID handle\n"));
@@ -3207,7 +3217,7 @@ DwcXdciEpTxData (
   DWC_XDCI_TRB_CONTROL          TrbCtrl;
   EFI_STATUS                    Status;
   UINT32                        EpNum;
-  UINT32                        BaseAddr;
+  UINTN                         BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciEpTxData: INVALID handle\n"));
@@ -3323,7 +3333,7 @@ DwcXdciEpRxData (
   DWC_XDCI_TRB_CONTROL          TrbCtrl;
   EFI_STATUS                    Status;
   UINT32                        EpNum;
-  UINT32                        BaseAddr;
+  UINTN                         BaseAddr;
 
   if (CoreHandle == NULL) {
     DEBUG ((DEBUG_INFO, "DwcXdciEpRxData: INVALID handle\n"));
@@ -3425,7 +3435,7 @@ DwcXdciCoreFlushEpFifo (
   IN UINT32              EpNum
   )
 {
-  UINT32 BaseAddr;
+  UINTN  BaseAddr;
   UINT32 MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
   UINT32 fifoNum;
   UINT32 Param;
@@ -3564,7 +3574,7 @@ UsbXdciCoreReinit (
   )
 {
   EFI_STATUS                      status = EFI_DEVICE_ERROR;
-  UINT32                          BaseAddr;
+  UINTN                           BaseAddr;
   XDCI_CORE_HANDLE                *LocalCoreHandle;
   DWC_XDCI_ENDPOINT_CMD_PARAMS    EpCmdParams;
   UINT32                          MaxDelayIter = DWC_XDCI_MAX_DELAY_ITERATIONS;
@@ -3738,7 +3748,7 @@ UsbXdciCoreReinit (
   // force into High-Speed mode to aVOID anyone trying this
   // on Super Speed port
   //
-#if 1
+#ifdef SUPPORT_SUPER_SPEED
   UsbRegWrite (
     BaseAddr,
     DWC_XDCI_DCFG_REG,
