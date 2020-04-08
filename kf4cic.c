@@ -227,6 +227,31 @@ EFI_STATUS load_and_start_tos(EFI_HANDLE image)
 
 	ret = start_trusty(tosimage);
 	debug(L"start_trusty return: %r(%x)\n", ret, ret);
+
+	return ret;
+}
+
+static VOID EFI_API activate_vtd_vmcall(EFI_EVENT event, VOID *ctx)
+{
+	(void)event;
+	(void)ctx;
+#define VMCALL_ACTIVATE_VTD 0x56544400ULL        // "VTD"
+	asm volatile ("vmcall" : : "a"(VMCALL_ACTIVATE_VTD));
+}
+
+static EFI_STATUS create_vtd_activate_event(VOID)
+{
+	EFI_EVENT e;
+	ret = uefi_call_wrapper(BS->CreateEvent,
+				5,
+				EVT_SIGNAL_EXIT_BOOT_SERVICES,
+				EFI_TPL_CALLBACK,
+				activate_vtd_vmcall,
+				NULL,
+				&e);
+	if (EFI_ERROR (ret)) {
+		debug(L"Failed to create callback event for VT-d activate in eVMM\n");
+	}
 	return ret;
 }
 #endif
@@ -278,6 +303,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 #ifdef USE_TRUSTY
 	debug(L"TRUSTY enabled...\n");
 	ret = load_and_start_tos(image);
+	if (EFI_ERROR(ret))
+		return ret;
+
+	debug(L"Create VT-d activate event...\n");
+	ret = create_vtd_activate_event();
 	if (EFI_ERROR(ret))
 		return ret;
 #endif
