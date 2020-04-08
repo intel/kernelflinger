@@ -31,6 +31,7 @@
 #include <efi.h>
 #include <efiapi.h>
 #include <efilib.h>
+#include <uefi_utils.h>
 
 #include "vars.h"
 #include "lib.h"
@@ -48,6 +49,14 @@
 #include "rpmb_storage.h"
 #include "security_efi.h"
 
+#ifndef SIZE_2MB
+#define SIZE_2MB                 0x200000U
+#endif
+
+#ifndef BASE_4GB
+#define BASE_4GB                 0x100000000ULL
+#endif
+
 /* Trusty OS (TOS) definitions */
 #define TOS_HEADER_MAGIC         0x6d6d76656967616d
 #define TOS_HIGH_ADDR            0x3fffffff   /* Less than 1 GB */
@@ -55,9 +64,7 @@
 #define TOS_STARTUP_VERSION_V3   0x03
 #define SIPI_AP_HIGH_ADDR        0x100000  /* Less than 1MB */
 #define SIPI_AP_MEMORY_LENGTH    0x1000  /* 4KB in length */
-#define VMM_MEM_BASE             0x34C00000
 #define VMM_MEM_SIZE             0x01000000
-#define TRUSTY_MEM_BASE          0x32C00000
 #define TRUSTY_MEM_SIZE          0x01400000
 #define TRUSTY_KEYBOX_KEY_SIZE   32
  /*
@@ -181,17 +188,20 @@ static EFI_STATUS get_address_size_vmm(OUT UINT64 *vmm_mem_base, OUT UINT32 *vmm
         if (!vmm_mem_base || !vmm_size)
                 return EFI_INVALID_PARAMETER;
 
-        *vmm_mem_base = VMM_MEM_BASE;
+        *vmm_mem_base = BASE_4GB; //allocate vmm's mem under 4G
         *vmm_size = VMM_MEM_SIZE;
 
         ret = allocate_pages(AllocateMaxAddress,
                              EfiRuntimeServicesData,
-                             EFI_SIZE_TO_PAGES(VMM_MEM_SIZE),
+                             EFI_SIZE_TO_PAGES(VMM_MEM_SIZE + SIZE_2MB), //allocate additional 2MB for alignment
                              vmm_mem_base);
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"Alloc memory for VMM base addess failed");
                 return EFI_OUT_OF_RESOURCES;
         }
+
+	*vmm_mem_base = ALIGN(*vmm_mem_base, SIZE_2MB);
+
         return EFI_SUCCESS;
 }
 
@@ -204,17 +214,20 @@ static EFI_STATUS get_address_size_trusty(OUT UINT64 *trusty_mem_base, OUT UINT3
         if (!trusty_mem_base || !trusty_size)
                 return EFI_INVALID_PARAMETER;
 
-        *trusty_mem_base = TRUSTY_MEM_BASE;
+        *trusty_mem_base = BASE_4GB; //allocate trusty's mem under 4G
         *trusty_size = TRUSTY_MEM_SIZE;
 
         ret = allocate_pages(AllocateMaxAddress,
                              EfiRuntimeServicesData,
-                             EFI_SIZE_TO_PAGES(TRUSTY_MEM_SIZE),
+                             EFI_SIZE_TO_PAGES(TRUSTY_MEM_SIZE + SIZE_2MB), //allocate additional 2MB for alignment
                              trusty_mem_base);
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"Alloc memory for Trusty base addess failed");
                 return EFI_OUT_OF_RESOURCES;
         }
+
+	*trusty_mem_base = ALIGN(*trusty_mem_base, SIZE_2MB);
+
         return EFI_SUCCESS;
 }
 
