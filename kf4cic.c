@@ -50,12 +50,10 @@
 
 #ifdef USE_TRUSTY
 #include "trusty_interface.h"
+#include "trusty_common.h"
 #endif
 
 #define SYSTEMD_BOOT_FILE L"loaderx64.efi"
-#define TOS_IMAGE_FILE    L"tos.img"
-#define VBMETA_IAS_FILE   L"vbmeta.ias"
-#define ESP_PARTITION     L"EFI"
 
 EFI_STATUS load_and_start_efi(EFI_HANDLE image_handle, CHAR16 *efi_file)
 {
@@ -188,45 +186,25 @@ EFI_STATUS start_systemd_boot(EFI_HANDLE image_handle)
 }
 
 #ifdef USE_TRUSTY
-EFI_STATUS load_file(EFI_HANDLE image_handle, CHAR16 *file, OUT VOID **image)
-{
-	EFI_STATUS ret;
-	UINTN size = 0;
-	EFI_FILE_IO_INTERFACE *io;
-	EFI_LOADED_IMAGE *g_loaded_image = NULL;
-	CHAR16 *abs_path;
-
-	uefi_call_wrapper(BS->HandleProtocol, 3, image_handle, &LoadedImageProtocol, (void **)&g_loaded_image);
-	ret = handle_protocol(g_loaded_image->DeviceHandle, &FileSystemProtocol, (void **)&io);
-	if (EFI_ERROR(ret))
-		return ret;
-
-	abs_path = absolute_path(image_handle, file);
-	if (abs_path == NULL)
-		return EFI_NOT_FOUND;
-
-	ret = uefi_read_file(io, abs_path, image, &size);
-	FreePool(abs_path);
-	if (EFI_ERROR(ret)) {
-		error(L"read file failed: %s", file);
-		return ret;
-	}
-
-	debug(L"file size of '%s' = %d\n", file, size);
-	return ret;
-}
-
-EFI_STATUS load_and_start_tos(EFI_HANDLE image)
+static EFI_STATUS load_and_start_tos(void)
 {
 	EFI_STATUS ret;
 	VOID *tosimage = NULL;
 
-	ret = load_file(image, TOS_IMAGE_FILE, &tosimage);
-	if (EFI_ERROR(ret))
+	debug(L"loading trusty");
+	ret = load_tos_image(&tosimage);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Load tos image failed");
 		return ret;
+	}
 
+	debug(L"start trusty");
 	ret = start_trusty(tosimage);
-	debug(L"start_trusty return: %r(%x)\n", ret, ret);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Unable to start trusty;");
+		return ret;
+	}
+
 	return ret;
 }
 #endif
@@ -234,26 +212,28 @@ EFI_STATUS load_and_start_tos(EFI_HANDLE image)
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 {
 	EFI_STATUS ret;
-	BOOLEAN    verify_pass = FALSE;
-	CHAR16     *vbmeta_path = NULL;
 #ifdef RPMB_STORAGE
 	UINT32 boot_state;
 #endif
 
 	InitializeLib(image, _table);
 
-	vbmeta_path = absolute_path(image, VBMETA_IAS_FILE);
-	// if secureboot is disabled, return always successful and verify_pass always true
-	ret = verify_vbmeta_ias(ESP_PARTITION, vbmeta_path, &verify_pass);
-	if (vbmeta_path != NULL)
-		FreePool(vbmeta_path);
-	if (EFI_ERROR(ret) || !verify_pass)
-		return ret;
+	/* Set device state as locked due to there is no fastboot
+	 * implement in CIC host oS side to support whole devcie lock/unlock */
+	if (device_is_unlocked()) {
+		ret = set_current_state(LOCKED);
+		if (EFI_ERROR(ret)) {
+			error(L"Failed to set device state");
+			return ret;
+		}
+	}
 
 #ifdef RPMB_STORAGE
 	ret = set_device_security_info(NULL);
-	if (EFI_ERROR(ret))
+	if (EFI_ERROR(ret)) {
 		error(L"Failed to init security info");
+		return ret;
+	}
 
 	if (is_platform_secure_boot_enabled())
 		boot_state = BOOT_STATE_GREEN;
@@ -265,19 +245,23 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 
 	debug(L"teedata region init...\n");
 	ret = rpmb_storage_init();
-	if (EFI_ERROR(ret))
+	if (EFI_ERROR(ret)) {
 		error(L"Failed to init teedata region");
+		return ret;
+	}
 
 	debug(L"teedata region init ret = %X\n", ret);
 
 	ret = rpmb_key_init();
-	if (EFI_ERROR(ret))
+	if (EFI_ERROR(ret)) {
 		error(L"teedata region init failure for osloader.\n");
+		return ret;
+	}
 #endif
 
 #ifdef USE_TRUSTY
 	debug(L"TRUSTY enabled...\n");
-	ret = load_and_start_tos(image);
+	ret = load_and_start_tos();
 	if (EFI_ERROR(ret))
 		return ret;
 #endif

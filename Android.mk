@@ -576,33 +576,6 @@ endif
 
 LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
 
-keys4cic_intermediates := $(call intermediates-dir-for,EFI,keys)
-
-CIC_VERITY_CERT := $(keys4cic_intermediates)/verity.cer
-CIC_PADDED_VERITY_CERT := $(keys4cic_intermediates)/verity.padded.cer
-CIC_OEMCERT_OBJ := $(keys4cic_intermediates)/oemcert.o
-
-$(CIC_VERITY_CERT): $(INTEL_PATH_BUILD)/testkeys/xbl_default.x509.pem
-	$(transform-pem-cert-to-der-cert)
-
-$(CIC_PADDED_VERITY_CERT): $(CIC_VERITY_CERT)
-	$(call pad-binary, 4096)
-
-ifeq ($(TARGET_IAFW_ARCH),x86_64)
-    ELF_OUTPUT := elf64-x86-64
-else
-    ELF_OUTPUT := elf32-i386
-endif
-
-cic_sym_binary := $(shell echo _binary_$(CIC_PADDED_VERITY_CERT) | sed "s/[\/\.-]/_/g")
-$(CIC_OEMCERT_OBJ): $(CIC_PADDED_VERITY_CERT)
-	mkdir -p $(@D) && \
-	$(EFI_OBJCOPY) --input binary --output $(ELF_OUTPUT) --binary-architecture i386 $< $@ && \
-	$(EFI_OBJCOPY) --redefine-sym $(cic_sym_binary)_start=_binary_oemcert_start \
-                       --redefine-sym $(cic_sym_binary)_end=_binary_oemcert_end \
-                       --redefine-sym $(cic_sym_binary)_size=_binary_oemcert_size \
-                       --rename-section .data=.oemkeys $@ $@
-
-LOCAL_GENERATED_SOURCES := $(CIC_OEMCERT_OBJ)
+LOCAL_GENERATED_SOURCES += $(AVB_PK_OBJ)
 
 include $(BUILD_EFI_EXECUTABLE) # For kf4cic-$(TARGET_BUILD_VARIANT)
