@@ -30,7 +30,7 @@
 #include <trusty/util.h>
 #include <trusty/keymaster.h>
 #include "storage.h"
-#include "../include/libkernelflinger/rpmb_storage.h"
+#include "rpmb_storage.h"
 
 #define LOCAL_LOG 0
 #define TRUSTY_QL_TIPC_MAX_BUFFER_LEN PAGE_SIZE

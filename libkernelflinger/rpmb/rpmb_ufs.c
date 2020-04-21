@@ -33,8 +33,8 @@
 #include <lib.h>
 #include "rpmb_ufs.h"
 #include "rpmb_storage_common.h"
-#include "../protocol/ufs.h"
-#include "../protocol/ScsiPassThruExt.h"
+#include "protocol/ufs.h"
+#include "protocol/ScsiPassThruExt.h"
 #include "storage.h"
 
 static EFI_EXT_SCSI_PASS_THRU_PROTOCOL *def_rpmb_ufs_scsi_passthru;

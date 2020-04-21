@@ -30,8 +30,8 @@
 #include <trusty/util.h>
 #include <interface/storage/storage.h>
 
-#include "../libkernelflinger/protocol/SdHostIo.h"
-#include "../include/libkernelflinger/rpmb.h"
+#include "libkernelflinger/protocol/SdHostIo.h"
+#include "include/rpmb.h"
 
 struct rpmb_packet {
     uint8_t              pad[196];

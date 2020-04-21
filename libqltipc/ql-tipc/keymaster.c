@@ -29,7 +29,7 @@
 #include <trusty/util.h>
 #include "security.h"
 #include <life_cycle.h>
-#include <libqltipc/libtipc.h>
+#include <libtipc.h>
 #include "storage.h"
 
 #define LOCAL_LOG 0

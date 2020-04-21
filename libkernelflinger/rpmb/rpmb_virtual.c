@@ -33,8 +33,8 @@
 #include <lib.h>
 #include "rpmb_virtual.h"
 #include "rpmb_storage_common.h"
-#include "../protocol/ufs.h"
-#include "../protocol/ScsiPassThruExt.h"
+#include "protocol/ufs.h"
+#include "protocol/ScsiPassThruExt.h"
 #include "storage.h"
 
 #define PAGE_SIZE			4096

@@ -61,7 +61,7 @@ endef #define res_intermediates_update
 $(foreach variant,$(basename $(notdir $(KERNELFLINGER_IMAGES))),$(eval $(call res_intermediates_update,$(variant))))
 
 LOCAL_MODULE := libkernelflinger-$(TARGET_BUILD_VARIANT)
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../include/libkernelflinger
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(KERNELFLINGER_LOCAL_PATH)/include
 LOCAL_CFLAGS := $(KERNELFLINGER_CFLAGS) \
                 -DTARGET_BOOTLOADER_BOARD_NAME=\"$(TARGET_BOOTLOADER_BOARD_NAME)\"
 LOCAL_STATIC_LIBRARIES := $(KERNELFLINGER_STATIC_LIBRARIES)
@@ -262,7 +262,8 @@ else
     LOCAL_CFLAGS += -DPREDEF_DISK_BUS=\"$(BOARD_DISK_BUS)\"
 endif
 
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include/libkernelflinger \
+LOCAL_C_INCLUDES := $(KERNELFLINGER_LOCAL_PATH)/include \
+		$(LOCAL_PATH)/../include/libkernelflinger \
 		$(LOCAL_PATH)/../ \
 		$(LOCAL_PATH)/../avb \
 		$(LOCAL_PATH)/../libefiusb/protocol \

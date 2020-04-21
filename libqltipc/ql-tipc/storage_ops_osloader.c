@@ -26,9 +26,9 @@
 #include <trusty/trusty_dev.h>
 #include <trusty/util.h>
 
-#include "../libkernelflinger/protocol/SdHostIo.h"
-#include "../include/libkernelflinger/rpmb.h"
-#include "../include/libkernelflinger/rpmb_storage_common.h"
+#include "libkernelflinger/protocol/SdHostIo.h"
+#include "include/rpmb.h"
+#include "include/rpmb_storage_common.h"
 
 void *rpmb_storage_get_ctx(void)
 {

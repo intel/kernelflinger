@@ -7,7 +7,7 @@ LOCAL_SRC_FILES := wrapper.c
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 FIRST_BUILD_ID := $(shell echo $(BUILD_ID) | cut -c 1)
 #ifeq ($(FIRST_BUILD_ID),O)
-LOCAL_CFLAGS := -I $(LOCAL_PATH)/../include/libkernelflinger
+LOCAL_CFLAGS := -I $(KERNELFLINGER_LOCAL_PATH)/include
 LOCAL_STATIC_LIBRARIES := libgnuefi libefi
 #libkernelflinger-$(TARGET_BUILD_VARIANT) #cause dependency cycle error in Android O
 #else

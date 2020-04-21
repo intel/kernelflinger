@@ -15,12 +15,11 @@ LOCAL_STATIC_LIBRARIES := \
 	$(KERNELFLINGER_STATIC_LIBRARIES) \
 	libkernelflinger-$(TARGET_BUILD_VARIANT)
 
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../../include/libqltipc
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/include \
+LOCAL_C_INCLUDES := $(KERNELFLINGER_LOCAL_PATH) \
+                    $(LOCAL_PATH)/include \
                     $(LOCAL_PATH)/../interface/include \
-                    $(LOCAL_PATH)/../../include \
-                    $(LOCAL_PATH)/../../libsslsupport \
-                    $(LOCAL_PATH)/../../avb
+                    $(KERNELFLINGER_LOCAL_PATH)/libsslsupport \
+                    $(KERNELFLINGER_LOCAL_PATH)/avb
 
 LOCAL_SRC_FILES := \
 	ipc.c \

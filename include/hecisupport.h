@@ -30,8 +30,8 @@
 #ifndef _HECISUPPORT_H_
 #define _HECISUPPORT_H_
 
-#include "../../libkernelflinger/protocol/Heci.h"
-#include "../../libkernelflinger/protocol/MkhiMsgs.h"
+#include "Heci.h"
+#include "MkhiMsgs.h"
 
 #define EOP_GROUP_ID 0xFF
 #define EOP_CMD_ID   0xC
