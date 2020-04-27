@@ -1027,7 +1027,12 @@ EFI_STATUS tpm2_init(void)
 	if (EFI_ERROR(ret))
 		return ret;
 
-	debug(L"TPM init OK. Secure boot ENABLED.");
+	debug(L"1 TPM init OK. Secure boot ENABLED.");
+	{volatile int foo; for(foo = 1000 ; foo>0 ; foo--){Print(L"TPM init OK. Secure boot ENABLED. %d", foo);}} //DebugLoop
+
+	Print(L"TPM init OK. Secure boot ENABLED.");
+	debug(L"2 TPM init OK. Secure boot ENABLED.");
+
 	return ret;
 }
 
