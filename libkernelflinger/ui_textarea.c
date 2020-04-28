@@ -240,6 +240,7 @@ void ui_textarea_set_line_n(ui_textarea_t *textarea, UINTN line_nb, char *str,
 {
 	char *newbuf = NULL;
 	UINTN len;
+	EFI_STATUS ret;
 
 	if (str == NULL)
 		return;
@@ -254,7 +255,9 @@ void ui_textarea_set_line_n(ui_textarea_t *textarea, UINTN line_nb, char *str,
 			return;
 		}
 
-		strcpy(newbuf, textarea->text[line_nb].str);
+		ret = strcpy_s(newbuf, len, textarea->text[line_nb].str);
+		if (EFI_ERROR(ret))
+			return;
 		strlcat(newbuf, str, len);
 
 		FreePool(textarea->text[line_nb].str);

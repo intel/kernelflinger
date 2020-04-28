@@ -677,13 +677,17 @@ void fastboot_ack_buffered(const char *code, const char *fmt, va_list ap)
 
 EFI_STATUS fastboot_info_long_string(char *str, VOID *context _unused)
 {
+	EFI_STATUS ret;
 	char linebuf[INFO_PAYLOAD];
 	const UINTN max_len = sizeof(linebuf) - 1;
 
 	linebuf[max_len] = '\0';
 
 	while (strlen((CHAR8 *)str) > max_len) {
-		memcpy(linebuf, str, max_len);
+		ret = memcpy_s(linebuf, sizeof(linebuf), str, max_len);
+		if (EFI_ERROR(ret))
+			return ret;
+
 		fastboot_info(linebuf);
 		str += max_len;
 	}
@@ -736,8 +740,13 @@ static void flush_tx_buffer(void)
 	if (!txbuf_head)
 		fastboot_state = next_state;
 
-	memcpy(buf, msg->msg, sizeof(buf));
+	ret = memcpy_s(buf, sizeof(buf), msg->msg, sizeof(buf));
 	FreePool(msg);
+	if (EFI_ERROR(ret)) {
+		fastboot_state = STATE_ERROR;
+		return;
+	}
+
 	ret = transport_write(buf, sizeof(buf));
 	if (EFI_ERROR(ret))
 		fastboot_state = STATE_ERROR;
@@ -966,7 +975,9 @@ static void cmd_reboot_fastbootd(__attribute__((__unused__)) INTN argc,
 	/*To support fastbootd, the bootloader must  implemnet a new Boot Control Block*/
 	/*(BCB) command of boot-fastboot. To enter fastboot, bootloader should write boot-fastboot*/
 	/*into the command field of the BCB message*/
-	strcpy(bcb.command, "boot-fastboot");
+	ret = strcpy_s(bcb.command, sizeof(bcb.command), "boot-fastboot");
+	if (EFI_ERROR(ret))
+		goto out;
 	/* We own the status field; clear it in case there is any stale data */
 	bcb.status[0] = '\0';
 
@@ -1484,6 +1495,7 @@ exit:
 EFI_STATUS fastboot_stop(void *bootimage, void *efiimage, UINTN imagesize,
 			 enum boot_target target)
 {
+	EFI_STATUS ret;
 	VOID *imgbuffer = NULL;
 
 	fastboot_imagesize = imagesize;
@@ -1495,7 +1507,9 @@ EFI_STATUS fastboot_stop(void *bootimage, void *efiimage, UINTN imagesize,
 			error(L"Failed to allocate image buffer");
 			return EFI_OUT_OF_RESOURCES;
 		}
-		memcpy(imgbuffer, bootimage ? bootimage : efiimage, imagesize);
+		ret = memcpy_s(imgbuffer, imagesize, bootimage ? bootimage : efiimage, imagesize);
+		if (EFI_ERROR(ret))
+			return ret;
 	}
 
 	fastboot_bootimage = bootimage ? imgbuffer : NULL;

@@ -55,12 +55,16 @@ int rpmb_storage_send(void *rpmb_dev, const void *rel_write_data, size_t rel_wri
                         const void *write_data, size_t write_size,
                         void *read_buf, size_t read_size)
 {
+    EFI_STATUS status;
     int ret = -1;
 
     if (rel_write_size) {
         int nframe = rel_write_size/RPMB_FRAME_SIZE;
         rpmb_data_frame rel_write_frame[nframe];
-        memcpy(rel_write_frame, rel_write_data, sizeof(rel_write_frame));
+        status = memcpy_s(rel_write_frame, sizeof(rel_write_frame), rel_write_data,
+                          sizeof(rel_write_frame));
+        if (EFI_ERROR(status))
+            return -1;
         if (rel_write_frame[0].req_resp == swap16(RPMB_REQ_DATA_WRITE)) {
             if (write_size/RPMB_FRAME_SIZE &&
                    ((rpmb_data_frame *)write_data)->req_resp
@@ -83,7 +87,9 @@ int rpmb_storage_send(void *rpmb_dev, const void *rel_write_data, size_t rel_wri
         }
     } else if (write_size) {
         rpmb_data_frame write_frame[write_size/RPMB_FRAME_SIZE];
-        memcpy(write_frame, write_data, sizeof(write_frame));
+        status = memcpy_s(write_frame, sizeof(write_frame), write_data, sizeof(write_frame));
+        if (EFI_ERROR(status))
+            return -1;
         if (write_frame[0].req_resp == swap16(RPMB_REQ_DATA_READ)) {
             ret = read_rpmb_data_frame(rpmb_dev, write_frame, 1,
                             read_buf, read_size/RPMB_FRAME_SIZE);

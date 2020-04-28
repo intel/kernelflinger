@@ -35,7 +35,9 @@ int avb_memcmp(const void* src1, const void* src2, size_t n) {
 }
 
 void* avb_memcpy(void* dest, const void* src, size_t n) {
-  return memcpy(dest, src, n);
+  EFI_STATUS ret;
+  ret = memcpy_s(dest, n, src, n);
+  return (ret == EFI_SUCCESS) ? (dest) : (NULL);
 }
 
 void* avb_memset(void* dest, const int c, size_t n) {

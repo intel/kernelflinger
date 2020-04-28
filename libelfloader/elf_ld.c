@@ -37,6 +37,7 @@ void *image_offset(module_file_info_t *file_info,
 BOOLEAN image_copy(void *dest, module_file_info_t *file_info,
 				uint64_t src_offset, uint64_t bytes_to_copy)
 {
+	EFI_STATUS ret;
 	void *src;
 	src = image_offset(file_info, src_offset, bytes_to_copy);
 	if (!src) {
@@ -47,8 +48,9 @@ BOOLEAN image_copy(void *dest, module_file_info_t *file_info,
 		 (file_info->runtime_addr + file_info->runtime_image_size))) {
 		return FALSE;
 	}
-	memcpy(dest, src, bytes_to_copy);
-	return TRUE;
+
+	ret = memcpy_s(dest, bytes_to_copy, src, bytes_to_copy);
+	return (ret == EFI_SUCCESS) ? (TRUE) : (FALSE);
 }
 
 /*------------------------- Exported Interface --------------------------*/

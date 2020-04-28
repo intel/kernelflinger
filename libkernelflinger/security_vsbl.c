@@ -111,7 +111,10 @@ EFI_STATUS parse_rpmb_key_from_boot_param(IN VOID * boot_param)
 						return ret;
 					}
 					if (num_rpmb_key < RPMB_MAX_PARTITION_NUMBER) {
-						memcpy(rpmb_key[num_rpmb_key], RpmbSeedInfo, RPMB_KEY_SIZE);
+						ret = memcpy_s(rpmb_key[num_rpmb_key], sizeof(rpmb_key), RpmbSeedInfo,
+									   RPMB_KEY_SIZE);
+						if (EFI_ERROR(ret))
+							return ret;
 						num_rpmb_key++;
 					}
 					memset(RpmbSeedInfo, 0x0, RPMB_KEY_SIZE);

@@ -123,7 +123,7 @@ int efi_snprintf(CHAR8 *str, UINTN size, const CHAR8 *format, ...);
 
 VOID StrNCpy(OUT CHAR16 *dest, IN const CHAR16 *src, UINT32 n);
 
-UINT8 getdigit(IN CHAR16 *str);
+EFI_STATUS getdigit(IN CHAR16 *str, OUT UINT8 *outstr);
 
 EFI_STATUS string_to_guid(IN CHAR16 *in_guid_str, OUT EFI_GUID *guid);
 
@@ -155,7 +155,22 @@ int strncmp(const CHAR8 *s1, const CHAR8 *s2, size_t n)
 CHAR8 *strcpy(CHAR8 *dest, const CHAR8 *src)
     __attribute__((weak));
 
+EFI_STATUS strcpy_s(char *restrict dest, size_t destsz, const char *restrict src)
+    __attribute__((weak));
+
+EFI_STATUS strcpy16_s(CHAR16 *restrict dest, size_t destsz, const CHAR16 *restrict src)
+    __attribute__((weak));
+
 CHAR8 *strncpy(CHAR8 *dest, const CHAR8 *src, size_t n)
+    __attribute__((weak));
+
+EFI_STATUS strncpy_s(char *restrict dest, size_t dmax, const char *restrict src, size_t slen)
+    __attribute__((weak));
+
+EFI_STATUS strncpy16_s(CHAR16 *restrict dest, size_t dmax, const CHAR16 *restrict src, size_t slen)
+    __attribute__((weak));
+
+EFI_STATUS strcat16_s (CHAR16 *restrict dest, size_t dmax, const CHAR16 *restrict src)
     __attribute__((weak));
 
 size_t strlcat(CHAR8 *dst, const CHAR8 *src, size_t siz)
@@ -171,6 +186,9 @@ CHAR8 *itoa(int val, CHAR8 *buf, unsigned radix)
     __attribute__((weak));
 
 void *memcpy(void *dest, const void *source, size_t count)
+    __attribute__((weak));
+
+EFI_STATUS memcpy_s(void *dest, size_t dest_size, const void *source, size_t count)
     __attribute__((weak));
 
 void *memmove(void *dst, const void *src, size_t n)

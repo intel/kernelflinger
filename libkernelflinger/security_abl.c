@@ -82,7 +82,10 @@ EFI_STATUS derive_rpmb_key_with_seed(IN VOID *seed, OUT VOID *rpmb_key)
         * serial[0] = cid[0];    -- CRC
         * serial[2] = cid[6];    -- PRV
         */
-        memcpy(serial, serialno, sizeof(serial));
+        ret = memcpy_s(serial, sizeof(serial), serialno, sizeof(serial));
+        if (EFI_ERROR(ret))
+            return ret;
+
         serial[0] ^= serial[0];
         serial[2] ^= serial[2];
 
@@ -91,14 +94,10 @@ EFI_STATUS derive_rpmb_key_with_seed(IN VOID *seed, OUT VOID *rpmb_key)
                 (const uint8_t *)&crypo_uuid, sizeof(EFI_GUID),
                 (const uint8_t *)serial, sizeof(serial))) {
                 error(L"HDKF failed \n");
-                ret = EFI_INVALID_PARAMETER;
-                goto out;
+                return EFI_INVALID_PARAMETER;
         }
 
-        ret = EFI_SUCCESS;
-
-out:
-        return ret;
+        return EFI_SUCCESS;
 }
 
  EFI_STATUS set_device_security_info(IN VOID *security_data)

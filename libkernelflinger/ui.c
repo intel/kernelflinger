@@ -282,8 +282,12 @@ EFI_STATUS ui_display_texts(const ui_textline_t **texts, UINTN x, UINTN y,
 		return EFI_OUT_OF_RESOURCES;
 	}
 	for (i = 0, pos = 0; texts[i]; i++, pos += j)
-		for (j = 0; texts[i][j].color; j++)
-			memcpy(&lines[pos + j], &texts[i][j], sizeof(*lines));
+		for (j = 0; texts[i][j].color; j++) {
+			ret = memcpy_s(&lines[pos + j], sizeof(ui_textline_t), &texts[i][j], sizeof(*lines));
+			if (EFI_ERROR(ret))
+				goto out;
+		}
+
 
 	ret = ui_textarea_display_text(lines, ui_font_get_default(),
 				       x, &y, colsarea, linesarea, NULL);
@@ -293,6 +297,7 @@ EFI_STATUS ui_display_texts(const ui_textline_t **texts, UINTN x, UINTN y,
 	for (i = 0; i < line_nb; i++)
 		debug(L"%a", lines[i].str);
 
+out:
 	FreePool(lines);
 	return ret;
 }

@@ -130,7 +130,11 @@ EFI_STATUS set_rpmb_derived_key_ex(IN VOID *kbuf, IN size_t kbuf_len, IN size_t 
 	}
 
 	for (i = 0; i < num_key; i++) {
-		memcpy(derived_key + i * RPMB_KEY_SIZE, kbuf + i * RPMB_KEY_SIZE, RPMB_KEY_SIZE);
+		ret = memcpy_s(derived_key + i * RPMB_KEY_SIZE, num_key * RPMB_KEY_SIZE,
+					   kbuf + i * RPMB_KEY_SIZE, RPMB_KEY_SIZE);
+		if (EFI_ERROR(ret))
+			return ret;
+
 		dump_rpmb_key(derived_key + i * RPMB_KEY_SIZE);
 	}
 	number_derived_key = num_key;
@@ -177,14 +181,14 @@ void clear_rpmb_key(void)
 	barrier();
 }
 
-void set_rpmb_key(UINT8 *key)
+EFI_STATUS set_rpmb_key(UINT8 *key)
 {
-	memcpy(rpmb_key, key, RPMB_KEY_SIZE);
+	return memcpy_s(rpmb_key, sizeof(rpmb_key), key, RPMB_KEY_SIZE);
 }
 
-void get_rpmb_key(UINT8 *key)
+EFI_STATUS get_rpmb_key(UINT8 *key)
 {
-	memcpy(key, rpmb_key, RPMB_KEY_SIZE);
+	return memcpy_s(key, RPMB_KEY_SIZE, rpmb_key, RPMB_KEY_SIZE);
 }
 
 EFI_STATUS clear_teedata_flag(void)
@@ -318,9 +322,11 @@ static EFI_STATUS program_rpmb_key_real(UINT8 *key)
 	EFI_STATUS ret;
 	RPMB_RESPONSE_RESULT rpmb_result;
 
-	memcpy(rpmb_key, key, RPMB_KEY_SIZE);
-	ret = program_rpmb_key(NULL, (const void *)key, &rpmb_result);
+	ret = memcpy_s(rpmb_key, sizeof(rpmb_key), key, RPMB_KEY_SIZE);
+	if (EFI_ERROR(ret))
+		return ret;
 
+	ret = program_rpmb_key(NULL, (const void *)key, &rpmb_result);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to program rpmb key");
 		return ret;
@@ -405,7 +411,9 @@ static EFI_STATUS write_rpmb_rollback_index_real(size_t index, UINT64 in_rollbac
 		return EFI_SUCCESS;
 	}
 
-	memcpy(rpmb_buffer + blk_offset, &in_rollback_index, sizeof(UINT64));
+	ret = memcpy_s(rpmb_buffer + blk_offset, sizeof(rpmb_buffer), &in_rollback_index, sizeof(UINT64));
+	if (EFI_ERROR(ret))
+		return ret;
 	ret = write_rpmb_data(NULL, 1, blk_addr, rpmb_buffer, rpmb_key, &rpmb_result);
 	debug(L"ret=%d, rpmb_result=%d", ret, rpmb_result);
 	if (EFI_ERROR(ret)) {
@@ -430,7 +438,12 @@ static EFI_STATUS read_rpmb_rollback_index_real(size_t index, UINT64 *out_rollba
 		efi_perror(ret, L"Failed to read rollback index");
 		return ret;
 	}
-	memcpy(out_rollback_index, rpmb_buffer + blk_offset, sizeof(UINT64));
+	ret = memcpy_s(out_rollback_index, sizeof(UINT64), rpmb_buffer + blk_offset, sizeof(UINT64));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to copy rollback index");
+		return ret;
+	}
+
 	debug(L"rollback index=%16x", *out_rollback_index);
 	return EFI_SUCCESS;
 }
@@ -451,7 +464,12 @@ static EFI_STATUS write_rpmb_keybox_magic_real(UINT16 offset, void *buffer)
 		return EFI_SUCCESS;
 	}
 
-	memcpy(rpmb_buffer, buffer, sizeof(uint32_t));
+	ret = memcpy_s(rpmb_buffer, sizeof(rpmb_buffer), buffer, sizeof(uint32_t));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to copy keybox magic data");
+		return ret;
+	}
+
 	ret = write_rpmb_data(NULL, 1, offset, rpmb_buffer, rpmb_key, &rpmb_result);
 	debug(L"ret=%d, rpmb_result=%d", ret, rpmb_result);
 	if (EFI_ERROR(ret)) {
@@ -474,9 +492,7 @@ static EFI_STATUS read_rpmb_keybox_magic_real(UINT16 offset, void *buffer)
 		return ret;
 	}
 
-	memcpy(buffer, rpmb_buffer, sizeof(uint32_t));
-
-	return EFI_SUCCESS;
+	return memcpy_s(buffer, sizeof(uint32_t), rpmb_buffer, sizeof(uint32_t));
 }
 
 static BOOLEAN is_rpmb_programed_simulate(void)
@@ -499,9 +515,13 @@ static EFI_STATUS program_rpmb_key_simulate(UINT8 *key)
 	EFI_STATUS efi_ret;
 	RPMB_RESPONSE_RESULT rpmb_result;
 
-	memcpy(rpmb_key, key, RPMB_KEY_SIZE);
-	efi_ret = simulate_program_rpmb_key((const void *)key, &rpmb_result);
+	efi_ret = memcpy_s(rpmb_key, sizeof(rpmb_key), key, RPMB_KEY_SIZE);
+	if (EFI_ERROR(efi_ret)) {
+		efi_perror(efi_ret, L"Failed to copy rpmb key");
+		return efi_ret;
+	}
 
+	efi_ret = simulate_program_rpmb_key((const void *)key, &rpmb_result);
 	if (EFI_ERROR(efi_ret)) {
 		efi_perror(efi_ret, L"Failed to program rpmb key");
 		return efi_ret;
@@ -593,7 +613,12 @@ static EFI_STATUS write_rpmb_rollback_index_simulate(size_t index, UINT64 in_rol
 		return EFI_SUCCESS;
 	}
 
-	memcpy(rpmb_buffer, &in_rollback_index, sizeof(UINT64));
+	ret = memcpy_s(rpmb_buffer, sizeof(rpmb_buffer), &in_rollback_index, sizeof(UINT64));
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to copy rollback index");
+		return ret;
+	}
+
 	ret = simulate_write_rpmb_data(byte_offset, rpmb_buffer, sizeof(UINT64));
 	debug(L"ret=%d", ret);
 	if (EFI_ERROR(ret)) {
@@ -620,7 +645,10 @@ static EFI_STATUS read_rpmb_rollback_index_simulate(size_t index, UINT64 *out_ro
 		efi_perror(ret, L"Failed to read rollback index");
 		return ret;
 	}
-	memcpy(out_rollback_index, rpmb_buffer, sizeof(UINT64));
+	ret = memcpy_s(out_rollback_index, sizeof(UINT64), rpmb_buffer, sizeof(UINT64));
+	if (EFI_ERROR(ret))
+		return ret;
+
 	debug(L"rollback index=%16x", *out_rollback_index);
 	return EFI_SUCCESS;
 }
@@ -647,15 +675,18 @@ static EFI_STATUS write_rpmb_keybox_magic_simulate(UINT16 offset, void *buffer)
 		return EFI_SUCCESS;
 	}
 
-	memcpy(rpmb_buffer, buffer, sizeof(uint32_t));
+	ret = memcpy_s(rpmb_buffer, sizeof(rpmb_buffer), buffer, sizeof(uint32_t));
+	if (EFI_ERROR(ret))
+		return ret;
+
 	ret = simulate_write_rpmb_data(byte_offset, rpmb_buffer, sizeof(uint32_t));
 	debug(L"ret=%d", ret);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to write keybox magic data");
 		return ret;
 	}
-	return EFI_SUCCESS;
 
+	return EFI_SUCCESS;
 }
 
 static EFI_STATUS read_rpmb_keybox_magic_simulate(UINT16 offset, void *buffer)
@@ -677,9 +708,7 @@ static EFI_STATUS read_rpmb_keybox_magic_simulate(UINT16 offset, void *buffer)
 		return ret;
 	}
 
-	memcpy(buffer, rpmb_buffer, sizeof(uint32_t));
-
-	return EFI_SUCCESS;
+	return memcpy_s(buffer, sizeof(uint32_t), rpmb_buffer, sizeof(uint32_t));
 }
 
 EFI_STATUS rpmb_key_init(void)
@@ -706,7 +735,10 @@ EFI_STATUS rpmb_key_init(void)
 	}
 
 	for (i = 0; i < number_derived_key; i++) {
-		memcpy(key, out_key + i * RPMB_KEY_SIZE, RPMB_KEY_SIZE);
+		ret = memcpy_s(key, sizeof(key), out_key + i * RPMB_KEY_SIZE, RPMB_KEY_SIZE);
+		if (EFI_ERROR(ret))
+			goto err_get_rpmb_key;
+
 		dump_rpmb_key(key);
 		ret = rpmb_read_counter_in_sim_real(key, &result);
 		if (ret == EFI_SUCCESS || result == RPMB_RES_NO_AUTH_KEY_PROGRAM)
@@ -735,7 +767,9 @@ EFI_STATUS rpmb_key_init(void)
 		}
 	} else {
 		debug(L"RPMB already programmed");
-		set_rpmb_key(key);
+		ret = set_rpmb_key(key);
+		if (EFI_ERROR(ret))
+			goto err_get_rpmb_key;
 	}
 
 	// Should output this info, since there maybe some error log about some keys failed at before.
@@ -817,7 +851,6 @@ EFI_STATUS get_rpmb_keys(IN UINT32 num_partition, OUT UINT8 rpmb_key_list[][RPMB
 #if RPMB_KEY_SIZE > RPMB_MAX_KEY_SIZE
 #error RPMB_KEY_SIZE should less or equal than RPMB_MAX_KEY_SIZE
 #endif
-	memcpy(rpmb_key_list[0], rpmb_key, RPMB_KEY_SIZE);
 
-	return EFI_SUCCESS;
+	return memcpy_s(rpmb_key_list[0], RPMB_KEY_SIZE, rpmb_key, RPMB_KEY_SIZE);
 }

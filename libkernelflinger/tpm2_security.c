@@ -290,9 +290,13 @@ EFI_STATUS tpm2_create_nvindex(TPMI_RH_NV_INDEX nv_index,
 	}
 	public_info.nvPublic.authPolicy.size = policy_digest.size;
 	// enable policy for this index now
-	memcpy(public_info.nvPublic.authPolicy.buffer, policy_digest.buffer, policy_digest.size);
-	public_info.size += public_info.nvPublic.authPolicy.size;
+	ret = memcpy_s(public_info.nvPublic.authPolicy.buffer,
+				   sizeof(public_info.nvPublic.authPolicy.buffer),
+				   policy_digest.buffer, policy_digest.size);
+	if (EFI_ERROR(ret))
+		return ret;
 
+	public_info.size += public_info.nvPublic.authPolicy.size;
 	return Tpm2NvDefineSpace(auth_handle, NULL,
 				 &nv_auth, &public_info);
 }
@@ -319,26 +323,27 @@ EFI_STATUS tpm2_write_nvindex(TPMI_RH_NV_INDEX nv_index,
 	while (left_size > 0) {
 		cur_size = (left_size > sizeof(nv_write_data.buffer)) ? sizeof(nv_write_data.buffer) : left_size;
 		nv_write_data.size = cur_size;
-		memcpy(nv_write_data.buffer, data + written_size, nv_write_data.size);
+		ret = memcpy_s(nv_write_data.buffer, sizeof(nv_write_data.buffer), data + written_size,
+					   nv_write_data.size);
+		if (EFI_ERROR(ret))
+			goto out;
 		ret = Tpm2NvWrite(nv_index, nv_index,
 			   &session_data, &nv_write_data, written_size + offset);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Write TPM NV index failed, index: 0x%x, size: %d, written_size: %d",
 					nv_index, nv_write_data.size, written_size);
-			memset(&nv_write_data, 0, sizeof(nv_write_data));
-			return ret;
+			goto out;
 		}
 		left_size -= cur_size;
 		written_size += cur_size;
 	}
-	memset(&nv_write_data, 0, sizeof(nv_write_data));
 
 	ret = Tpm2FlushContext(session_handle);
-	if (EFI_ERROR(ret)) {
+	if (EFI_ERROR(ret))
 		efi_perror(ret, L"%a - FlushContext failed", __func__);
-		return ret;
-	}
 
+out:
+	memset(&nv_write_data, 0, sizeof(nv_write_data));
 	return ret;
 }
 
@@ -404,7 +409,9 @@ EFI_STATUS tpm2_read_nvindex(TPMI_RH_NV_INDEX nv_index,
 			// No data read
 			break;
 		}
-		memcpy(data + read_size, nv_read_data.buffer, nv_read_data.size);
+		ret = memcpy_s(data + read_size, nv_read_data.size, nv_read_data.buffer, nv_read_data.size);
+		if (EFI_ERROR(ret))
+			return ret;
 		left_size -= nv_read_data.size;
 		read_size += nv_read_data.size;
 	}
@@ -482,7 +489,10 @@ static EFI_STATUS check_provision_status(void)
 	attribute_matrix_t matrix, expected_table[MAX_NV_NUMBER];
 	UINT32 i;
 
-	memcpy(expected_table, config_table, sizeof(expected_table));
+	ret = memcpy_s(expected_table, sizeof(expected_table), config_table, sizeof(expected_table));
+	if (EFI_ERROR(ret))
+		return ret;
+
 	for (i = 0; i < MAX_NV_NUMBER; i++) {
 		ret = Tpm2NvReadPublic(config_table[i].nv_index, &NvPublic, &NvName);
 		if (EFI_ERROR(ret)) {

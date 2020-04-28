@@ -173,7 +173,7 @@ close:
 	path = AllocateZeroPool(DIR_BUFFER_SIZE);
 	if (!path)
 		return;
-	StrCat(path, L"/bootloader/");
+	strcat16_s(path, DIR_BUFFER_SIZE / sizeof(CHAR16), L"/bootloader/");
  }
 
 static void freepath(void)
@@ -188,6 +188,8 @@ static void freepath(void)
 
 static void pushdir(CHAR16 *dir)
 {
+	EFI_STATUS ret;
+
 	if (!path)
 		return;
 
@@ -195,8 +197,12 @@ static void pushdir(CHAR16 *dir)
 		return;
 
 	subname[subdir] = path + StrLen(path);
-	StrCat(path, dir);
-	StrCat(path, L"/");
+	ret = strcat16_s(path, DIR_BUFFER_SIZE / sizeof(CHAR16), dir);
+	if (EFI_ERROR(ret))
+	    return;
+	ret = strcat16_s(path, DIR_BUFFER_SIZE / sizeof(CHAR16), L"/");
+	if (EFI_ERROR(ret))
+	    return;
 	debug(L"Opening %s", path);
 }
 

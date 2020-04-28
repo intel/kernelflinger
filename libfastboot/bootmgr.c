@@ -165,11 +165,16 @@ static EFI_STATUS create_buffer(UINTN initial_size)
 
 static EFI_STATUS append_to_buffer(VOID *data, UINTN size)
 {
+	EFI_STATUS ret;
+
 	buffer = ReallocatePool(buffer, buf_size, buf_size + size);
 	if (!buffer)
 		return EFI_OUT_OF_RESOURCES;
 
-	memcpy(buffer + buf_size, data, size);
+	ret = memcpy_s(buffer + buf_size, buf_size + size, data, size);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	buf_size += size;
 
 	return EFI_SUCCESS;
@@ -342,7 +347,10 @@ static EFI_STATUS install_in_boot_order(UINT16 *entries, UINTN entry_nb)
 		goto exit;
 	}
 
-	memcpy(new_entries, entries, entry_nb * sizeof(*entries));
+	ret = memcpy_s(new_entries, new_size, entries, entry_nb * sizeof(*entries));
+	if (EFI_ERROR(ret))
+		goto exit;
+
 	for (i = 0, j = entry_nb; i < size / sizeof(*entries); i++) {
 		if (is_in_set(old_entries[i], entries, entry_nb))
 		    continue;

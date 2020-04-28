@@ -206,6 +206,7 @@ static EFI_STATUS fastboot_tcp_start(start_callback_t start_cb,
 
 EFI_STATUS fastboot_tcp_write(void *buf, UINT32 size)
 {
+	EFI_STATUS ret;
 	static char write_buf[MAGIC_LENGTH + sizeof(UINT64)];
 
 	if (tcp_state != READY) {
@@ -219,7 +220,10 @@ EFI_STATUS fastboot_tcp_write(void *buf, UINT32 size)
 	}
 
 	*((UINT64 *)write_buf) = htobe64(size);
-	memcpy(write_buf + sizeof(UINT64), buf, size);
+	ret = memcpy_s(write_buf + sizeof(UINT64), sizeof(write_buf), buf, size);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	return tcp_write(write_buf, size + sizeof(UINT64));
 }
 

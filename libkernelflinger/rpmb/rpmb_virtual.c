@@ -94,6 +94,7 @@ static rpmb_data_frame *virtual_rpmb_get_frame_address(VOID *virtio_buffer, UINT
 static EFI_STATUS virtual_rpmb_copy_virtio_buffer_to_data(virtio_rpmb_ioctl_seq_data *seq_data_dest,
 	VOID *virtio_buffer_src)
 {
+	EFI_STATUS ret;
 	virtio_rpmb_ioctl_seq_data *seq_data = NULL;
 	virtio_rpmb_cmd *cmds = NULL;
 	rpmb_data_frame *addr_rpmb_frame = NULL;
@@ -113,8 +114,10 @@ static EFI_STATUS virtual_rpmb_copy_virtio_buffer_to_data(virtio_rpmb_ioctl_seq_
 			debug(L"cmds[%d].addr_rpmb_frame is NULL", i);
 			return EFI_INVALID_PARAMETER;
 		}
-		memcpy(seq_data_dest->cmds[i].addr_rpmb_frame, addr_rpmb_frame,
-			seq_data->cmds[i].n_rpmb_frame * sizeof(rpmb_data_frame));
+		ret = memcpy_s(seq_data_dest->cmds[i].addr_rpmb_frame, sizeof(rpmb_data_frame), addr_rpmb_frame,
+					   seq_data->cmds[i].n_rpmb_frame * sizeof(rpmb_data_frame));
+		if (EFI_ERROR(ret))
+			return ret;
 	}
 
 	return EFI_SUCCESS;
@@ -123,6 +126,7 @@ static EFI_STATUS virtual_rpmb_copy_virtio_buffer_to_data(virtio_rpmb_ioctl_seq_
 static EFI_STATUS virtual_rpmb_copy_data_to_virtio_buffer(VOID *virtio_buffer,
 	virtio_rpmb_ioctl_seq_data *src_seq_data)
 {
+	EFI_STATUS ret;
 	virtio_rpmb_ioctl_seq_data *seq_data = NULL;
 	virtio_rpmb_cmd *cmds;
 
@@ -142,8 +146,11 @@ static EFI_STATUS virtual_rpmb_copy_data_to_virtio_buffer(VOID *virtio_buffer,
 			debug(L"cmds[%d].addr_rpmb_frame is NULL", i);
 			return EFI_INVALID_PARAMETER;
 		}
-		memcpy(cmds[i].addr_rpmb_frame, src_seq_data->cmds[i].addr_rpmb_frame,
-			src_seq_data->cmds[i].n_rpmb_frame * sizeof(rpmb_data_frame));
+		ret = memcpy_s(cmds[i].addr_rpmb_frame, sizeof(rpmb_data_frame),
+					   src_seq_data->cmds[i].addr_rpmb_frame,
+					   src_seq_data->cmds[i].n_rpmb_frame * sizeof(rpmb_data_frame));
+		if (EFI_ERROR(ret))
+			return ret;
 	}
 
 	return EFI_SUCCESS;
@@ -384,7 +391,9 @@ EFI_STATUS virtual_rpmb_read_data(void *rpmb_dev, UINT16 blk_count, UINT16 blk_a
 		efi_perror(ret, L"Failed to generate random numbers");
 		goto out;
 	}
-	memcpy(data_in_frame.nonce, random, RPMB_NONCE_SIZE);
+	ret = memcpy_s(data_in_frame.nonce, sizeof(data_in_frame.nonce), random, RPMB_NONCE_SIZE);
+	if (EFI_ERROR(ret))
+		return ret;
 
 	ret = virtual_rpmb_send_virtio_data(rpmb_dev, RPMB_REQUEST_AUTH_READ, &data_in_frame, 1, data_out_frame, blk_count);
 	if (EFI_ERROR(ret)) {
@@ -416,8 +425,11 @@ EFI_STATUS virtual_rpmb_read_data(void *rpmb_dev, UINT16 blk_count, UINT16 blk_a
 		ret = EFI_ABORTED;
 		goto out;
 	}
-	for (i = 0; i < blk_count; i++)
-		memcpy((UINT8 *)buffer + i * 256, data_out_frame[i].data, 256);
+	for (i = 0; i < blk_count; i++) {
+		ret = memcpy_s((UINT8 *)buffer + i * 256, 256, data_out_frame[i].data, 256);
+		if (EFI_ERROR(ret))
+			goto out;
+	}
 
 out:
 
@@ -516,7 +528,10 @@ EFI_STATUS virtual_rpmb_write_data(void *rpmb_dev, UINT16 blk_count, UINT16 blk_
 		data_in_frame[i].block_count = CPU_TO_BE16_SWAP(blk_count);
 		data_in_frame[i].req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_AUTH_WRITE);
 		data_in_frame[i].write_counter = CPU_TO_BE32_SWAP(write_counter);
-		memcpy(&data_in_frame[i].data, (UINT8 *)buffer + i * 256, 256);
+		ret = memcpy_s(&data_in_frame[i].data, sizeof(data_in_frame[0].data),
+					   (UINT8 *)buffer + i * 256, 256);
+		if (EFI_ERROR(ret))
+			goto out;
 	}
 
 	if (rpmb_calc_hmac_sha256(data_in_frame, blk_count,
@@ -525,7 +540,11 @@ EFI_STATUS virtual_rpmb_write_data(void *rpmb_dev, UINT16 blk_count, UINT16 blk_
 		ret = EFI_INVALID_PARAMETER;
 		goto out;
 	}
-	memcpy(data_in_frame[blk_count - 1].key_mac, mac, RPMB_DATA_MAC);
+
+	ret = memcpy_s(data_in_frame[blk_count - 1].key_mac, sizeof(data_in_frame[0].key_mac),
+				   mac, RPMB_DATA_MAC);
+	if (EFI_ERROR(ret))
+		goto out;
 
 	memset(&status_frame, 0, sizeof(status_frame));
 	status_frame.req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_STATUS);
@@ -582,7 +601,9 @@ EFI_STATUS virtual_rpmb_program_key(void *rpmb_dev, const void *key, RPMB_RESPON
 	memset(&data_frame, 0, sizeof(data_frame));
 	memset(&status_frame, 0, sizeof(status_frame));
 	data_frame.req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_KEY_WRITE);
-	memcpy(data_frame.key_mac, key, RPMB_KEY_SIZE);
+	ret = memcpy_s(data_frame.key_mac, sizeof(data_frame.key_mac), key, RPMB_KEY_SIZE);
+	if (EFI_ERROR(ret))
+		return ret;
 
 	ret = virtual_rpmb_send_virtio_data(rpmb_dev, RPMB_REQUEST_KEY_WRITE, &data_frame, 1, &status_frame, 1);
 	if (EFI_ERROR(ret)) {

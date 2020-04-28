@@ -242,7 +242,9 @@ static EFI_STATUS installer_flash_big_chunk_multiple(EFI_FILE **file, UINTN *rea
 		read_size = min(payload_size, MAX_DATA_SIZE);
 		if (data_size < MAX_DATA_SIZE) {
 			already_read = MAX_DATA_SIZE - data_size;
-			memcpy(read_ptr, fb->d.data + ckh->total_sz, already_read);
+			ret = memcpy_s(read_ptr, MAX_DATA_SIZE, fb->d.data + ckh->total_sz, already_read);
+			if (EFI_ERROR(ret))
+				return ret;
 			read_size -= already_read;
 			read_ptr += already_read;
 			if (read_size > file_size) {
@@ -306,7 +308,9 @@ static EFI_STATUS installer_flash_big_chunk(EFI_FILE *file, UINTN *remaining_dat
 		read_size = min(payload_size, MAX_DATA_SIZE);
 		if (data_size < MAX_DATA_SIZE) {
 			already_read = MAX_DATA_SIZE - data_size;
-			memcpy(read_ptr, fb->d.data + ckh->total_sz, already_read);
+			ret = memcpy_s(read_ptr, MAX_DATA_SIZE, fb->d.data + ckh->total_sz, already_read);
+			if (EFI_ERROR(ret))
+				return ret;
 			read_size -= already_read;
 			read_ptr += already_read;
 		}
@@ -361,7 +365,9 @@ static void installer_split_and_joint_flash(CHAR16 **filename,
 		return;
 	}
 	fb = dl->data;
-	memcpy(&fb->sph, &sph, sizeof(sph));
+	ret = memcpy_s(&fb->sph, sizeof(fb->sph), &sph, sizeof(sph));
+	if (EFI_ERROR(ret))
+		return;
 	/* Sparse skip chunk. */
 	fb->skip_ckh.chunk_type = CHUNK_TYPE_DONT_CARE;
 	fb->skip_ckh.total_sz = sizeof(fb->skip_ckh);
@@ -424,7 +430,9 @@ static void installer_split_and_joint_flash(CHAR16 **filename,
 
 		if (dl->data + flash_size < read_ptr + read_size) {
 			already_read = read_ptr + read_size - (void *)ckh;
-			memcpy(fb->d.data, ckh, already_read);
+			ret = memcpy_s(fb->d.data, MAX_DATA_SIZE, ckh, already_read);
+			if (EFI_ERROR(ret))
+				goto exit;
 			read_size = MAX_DATA_SIZE - already_read;
 			read_ptr = fb->d.data + already_read;
 
@@ -436,7 +444,9 @@ static void installer_split_and_joint_flash(CHAR16 **filename,
 			ret = read_file(file[read_flags], size[read_flags], read_ptr);
 			if (EFI_ERROR(ret))
 				goto exit;
-			memcpy(fb->d.data+already_read, read_ptr, size[read_flags]);
+			ret = memcpy_s(fb->d.data+already_read, MAX_DATA_SIZE, read_ptr, size[read_flags]);
+			if (EFI_ERROR(ret))
+				goto exit;
 			read_size = read_size - size[read_flags];
 			remaining_data  -= size[read_flags];
 			read_ptr = fb->d.data+already_read+size[read_flags];
@@ -483,7 +493,9 @@ static void installer_split_and_flash(CHAR16 *filename, UINTN size,
 	fb = dl->data;
 
 	/* New sparse header. */
-	memcpy(&fb->sph, &sph, sizeof(sph));
+	ret = memcpy_s(&fb->sph, sizeof(fb->sph), &sph, sizeof(sph));
+	if (EFI_ERROR(ret))
+		return;
 
 	/* Sparse skip chunk. */
 	fb->skip_ckh.chunk_type = CHUNK_TYPE_DONT_CARE;
@@ -554,7 +566,9 @@ static void installer_split_and_flash(CHAR16 *filename, UINTN size,
 		   beginning of the buffer. */
 		if (dl->data + flash_size < read_ptr + read_size) {
 			already_read = read_ptr + read_size - (void *)ckh;
-			memcpy(fb->d.data, ckh, already_read);
+			ret = memcpy_s(fb->d.data, MAX_DATA_SIZE, ckh, already_read);
+			if (EFI_ERROR(ret))
+				goto exit;
 			read_size = MAX_DATA_SIZE - already_read;
 			read_ptr = fb->d.data + already_read;
 		} else {
@@ -683,8 +697,11 @@ exit:
 	}
 }
 
+#define SIZE_OF_FILENAME (label_length + 5)
+
 static CHAR16 *get_format_image_filename(CHAR8 *label)
 {
+	EFI_STATUS ret;
 	CHAR8 *filename;
 	CHAR16 *filename16;
 	UINTN label_length;
@@ -693,20 +710,29 @@ static CHAR16 *get_format_image_filename(CHAR8 *label)
 		label = (CHAR8 *)"userdata";
 
 	label_length = strlena(label);
-	filename = AllocateZeroPool(label_length + 5);
+	filename = AllocateZeroPool(SIZE_OF_FILENAME);
 	if (!filename) {
 		fastboot_fail("Unable to allocate CHAR8 filename buffer");
 		return NULL;
 	}
-	memcpy(filename, label, label_length);
-	memcpy(filename + label_length, ".img", 4);
+	ret = memcpy_s(filename, SIZE_OF_FILENAME, label, label_length);
+	if (EFI_ERROR(ret)) {
+		filename16 = NULL;
+		goto out;
+	}
+	ret = memcpy_s(filename + label_length, SIZE_OF_FILENAME, ".img", 4);
+	if (EFI_ERROR(ret)) {
+		filename16 = NULL;
+		goto out;
+	}
 	filename16 = stra_to_str(filename);
-	FreePool(filename);
 	if (!filename16) {
 		fastboot_fail("Unable to allocate CHAR16 filename buffer");
-		return NULL;
+		filename16 = NULL;
 	}
 
+out:
+	FreePool(filename);
 	return filename16;
 }
 
@@ -850,18 +876,24 @@ static EFI_STATUS create_new_command(struct command *command, char *str)
 	return EFI_SUCCESS;
 }
 
+#define SIZE_OF_NEW_COMMANDS ((command_nb + 1) * sizeof(*new_commands))
+
 static EFI_STATUS store_command(char *command, VOID *context _unused)
 {
 	EFI_STATUS ret;
 	struct command *new_commands;
 
-	new_commands = AllocatePool((command_nb + 1) * sizeof(*new_commands));
+	new_commands = AllocatePool(SIZE_OF_NEW_COMMANDS);
 	if (!new_commands) {
 		free_commands();
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-	memcpy(new_commands, commands, command_nb * sizeof(*commands));
+	ret = memcpy_s(new_commands, SIZE_OF_NEW_COMMANDS, commands, command_nb * sizeof(*commands));
+	if (EFI_ERROR(ret)) {
+		free_commands();
+		return ret;
+	}
 	ret = create_new_command(&new_commands[command_nb], command);
 	if (EFI_ERROR(ret)) {
 		free_commands();
@@ -921,6 +953,7 @@ static void batch(INTN argc, CHAR8 **argv)
 
 static CHAR8 *build_default_options()
 {
+	EFI_STATUS ret;
 	static CHAR8 options[64];
 	const char cmd_prefix[] = "--batch installer";
 	const char file_suffix[] = ".cmd";
@@ -929,7 +962,9 @@ static CHAR8 *build_default_options()
 	if (*options)
 		return options;
 
-	memcpy(options, cmd_prefix, sizeof(cmd_prefix) - 1);
+	ret = memcpy_s(options, sizeof(options), cmd_prefix, sizeof(cmd_prefix) - 1);
+	if (EFI_ERROR(ret))
+		return NULL;
 	str = (char *)options + strlen(options);
 
 #ifdef HAL_AUTODETECT
@@ -941,7 +976,9 @@ static CHAR8 *build_default_options()
 	}
 #endif
 
-	memcpy(str, file_suffix, sizeof(file_suffix) - 1);
+	ret = memcpy_s(str, sizeof(file_suffix) - 1, file_suffix, sizeof(file_suffix) - 1);
+	if (EFI_ERROR(ret))
+		return NULL;
 
 	return options;
 }
@@ -1230,7 +1267,9 @@ EFI_STATUS installer_transport_run(void)
 		goto stop;
 	}
 
-	memcpy(fastboot_cmd_buf, cmd, cmd_len);
+	ret = memcpy_s(fastboot_cmd_buf, fastboot_cmd_buf_len, cmd, cmd_len);
+	if (EFI_ERROR(ret))
+		goto stop;
 
 	Print(L"Starting command: '%a'\n", cmd);
 	fastboot_rx_cb(fastboot_cmd_buf, cmd_len);

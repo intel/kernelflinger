@@ -65,6 +65,7 @@ static slot_metadata_t *slots = boot_ctrl.slot_info;
 
 static const CHAR16 *label_with_suffix(const CHAR16 *label, const char *suffix)
 {
+	EFI_STATUS ret;
 	static CHAR16 res_label[MAX_LABEL_LEN];
 	UINTN label_len, i, j;
 
@@ -76,7 +77,10 @@ static const CHAR16 *label_with_suffix(const CHAR16 *label, const char *suffix)
 		return res_label;
 	}
 
-	memcpy(res_label, label, label_len * sizeof(*label));
+	ret = memcpy_s(res_label, sizeof(res_label), label, label_len * sizeof(*label));
+	if (EFI_ERROR(ret))
+		return res_label;
+
 	for (i = label_len, j = 0; j < SUFFIX_LEN; i++, j++)
 		res_label[i] = suffix[j];
 	res_label[label_len + SUFFIX_LEN] = '\0';
@@ -322,6 +326,7 @@ const CHAR16 *slot_label(const CHAR16 *base)
 
 const CHAR16 *slot_base(const CHAR16 *label)
 {
+	EFI_STATUS ret;
 	static CHAR16 res_base[MAX_LABEL_LEN];
 	UINTN label_len, base_len;
 	char suffix[SUFFIX_LEN + 1];
@@ -339,9 +344,11 @@ const CHAR16 *slot_base(const CHAR16 *label)
 		return NULL;
 
 	base_len = label_len - SUFFIX_LEN;
-	memcpy(res_base, label, base_len * sizeof(CHAR16));
-	res_base[base_len] = '\0';
+	ret = memcpy_s(res_base, sizeof(res_base), label, base_len * sizeof(CHAR16));
+	if (EFI_ERROR(ret))
+		return NULL;
 
+	res_base[base_len] = '\0';
 	return res_base;
 }
 

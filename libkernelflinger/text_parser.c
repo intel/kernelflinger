@@ -56,7 +56,10 @@ EFI_STATUS parse_text_buffer(VOID *data, UINTN size,
 		error(L"Failed to allocate text copy buffer");
 		return EFI_OUT_OF_RESOURCES;
 	}
-	memcpy(buf, data, size);
+	ret = memcpy_s(buf, size + 1, data, size);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	buf[size] = 0;
 
 	for (line = buf; line - buf < (ssize_t)size; line = eol + 1) {

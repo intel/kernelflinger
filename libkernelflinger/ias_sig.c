@@ -77,6 +77,7 @@ typedef struct ias_sig {
 EFI_STATUS decode_boot_signature(const unsigned char *data, long size,
 				 struct boot_signature *bs)
 {
+	EFI_STATUS ret;
 	ias_sig_t *sig = (ias_sig_t *)data;
 	UINTN len;
 
@@ -107,7 +108,11 @@ EFI_STATUS decode_boot_signature(const unsigned char *data, long size,
 	if (len == sizeof(sig->attributes.target))
 		return EFI_INVALID_PARAMETER;
 
-	memcpy(bs->attributes.target, sig->attributes.target, len);
+	ret = memcpy_s(bs->attributes.target, sizeof(bs->attributes.target), sig->attributes.target,
+				   len);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	bs->attributes.length = sig->attributes.length;
 	bs->attributes.data = data;
 	bs->attributes.data_sz = offsetof(ias_sig_t, signature);
@@ -115,7 +120,9 @@ EFI_STATUS decode_boot_signature(const unsigned char *data, long size,
 	bs->signature = AllocatePool(sizeof(sig->signature));
 	if (!bs->signature)
 		return EFI_OUT_OF_RESOURCES;
-	memcpy(bs->signature, sig->signature, sizeof(sig->signature));
+	ret = memcpy_s(bs->signature, sizeof(bs->signature), sig->signature, sizeof(sig->signature));
+	if (EFI_ERROR(ret))
+		return ret;
 
 	bs->signature_len = sizeof(sig->signature);
 	bs->total_size = sizeof(*sig);

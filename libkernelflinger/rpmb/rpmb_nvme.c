@@ -335,7 +335,9 @@ EFI_STATUS nvme_rpmb_program_key(void *rpmb_dev, const void *key, RPMB_RESPONSE_
 	memset(&frame, 0, sizeof(frame));
 	frame.target = NVME_RPMB_TARGET;
 	frame.req_resp = RPMB_REQUEST_KEY_WRITE;
-	memcpy(frame.key_mac, key, RPMB_KEY_SIZE);
+	ret = memcpy_s(frame.key_mac, sizeof(frame.key_mac), key, RPMB_KEY_SIZE);
+	if (EFI_ERROR(ret))
+		return ret;
 	ret = nvme_security_rpmb_send_request_impl(rpmb_dev, &frame, 1, FALSE);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to send request to rpmb");
@@ -400,7 +402,8 @@ EFI_STATUS nvme_rpmb_read_data_impl(void *rpmb_dev, UINT16 blk_count, UINT16 blk
 		goto out;
 	}
 
-	memcpy((UINT8 *)buffer, &frame_out[1], blk_count * NVME_RPMB_SECTOR_SIZE);
+	ret = memcpy_s((UINT8 *)buffer, blk_count * NVME_RPMB_SECTOR_SIZE, &frame_out[1],
+				   blk_count * NVME_RPMB_SECTOR_SIZE);
 out:
 	if (frame_out)
 		FreePool(frame_out);
@@ -418,7 +421,9 @@ EFI_STATUS nvme_rpmb_read_data_half(void *rpmb_dev, UINT16 blk_addr, void *buffe
 	if (EFI_ERROR(ret))
 		return ret;
 
-	memcpy(buffer, buf + (blk_addr & 1) * NVME_RPMB_SECTOR_SIZE / 2, NVME_RPMB_SECTOR_SIZE / 2);
+	ret = memcpy_s(buffer, NVME_RPMB_SECTOR_SIZE / 2,
+				   buf + (blk_addr & 1) * NVME_RPMB_SECTOR_SIZE / 2,
+				   NVME_RPMB_SECTOR_SIZE / 2);
 	return ret;
 }
 
@@ -476,7 +481,10 @@ EFI_STATUS nvme_rpmb_write_data_impl(void *rpmb_dev, UINT32 *write_counter, UINT
 	frame->sector_count = (UINT32)blk_count;
 	frame->address = (UINT32)blk_addr;
 	frame->write_counter = *write_counter;
-	memcpy(&frame[1], (UINT8 *)buffer, blk_count * NVME_RPMB_SECTOR_SIZE);
+	ret = memcpy_s(&frame[1], sizeof(*frame), (UINT8 *)buffer, blk_count * NVME_RPMB_SECTOR_SIZE);
+	if (EFI_ERROR(ret))
+		goto out;
+
 
 	num = NVME_RPMB_SECTOR_SIZE * blk_count + sizeof(struct nvme_rpmb_data_frame);
 	num -= offsetof(struct nvme_rpmb_data_frame, target);
@@ -534,7 +542,10 @@ EFI_STATUS nvme_rpmb_write_data_half(void *rpmb_dev, UINT32 *write_counter, UINT
 	if (EFI_ERROR(ret))
 		return ret;
 
-	memcpy(buf + (blk_addr & 1) * NVME_RPMB_SECTOR_SIZE / 2, buffer, NVME_RPMB_SECTOR_SIZE / 2);
+	ret = memcpy_s(buf + (blk_addr & 1) * NVME_RPMB_SECTOR_SIZE / 2,
+				   sizeof(buf), buffer, NVME_RPMB_SECTOR_SIZE / 2);
+	if (EFI_ERROR(ret))
+		return ret;
 	ret = nvme_rpmb_write_data_impl(rpmb_dev, write_counter, 1, blk_addr / 2, buf, key, result);
 
 	return ret;

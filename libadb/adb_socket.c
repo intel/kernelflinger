@@ -145,10 +145,14 @@ EFI_STATUS asock_read(asock_t s, unsigned char *data, UINT32 length)
 /* Device to host */
 EFI_STATUS asock_write(asock_t s, unsigned char *data, UINT32 length)
 {
+	EFI_STATUS ret;
+
 	if (!s || length > adb_max_payload)
 		return EFI_INVALID_PARAMETER;
 
-	memcpy(s->data, data, length);
+	ret = memcpy_s(s->data, sizeof(s->data), data, length);
+	if (EFI_ERROR(ret))
+		return ret;
 	s->wrt.data = s->data;
 	s->wrt.msg.data_length = length;
 	return adb_send_pkt(&s->wrt, A_WRTE, s->local, s->remote);

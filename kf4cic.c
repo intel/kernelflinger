@@ -125,6 +125,7 @@ CHAR16 *absolute_path(EFI_HANDLE image_handle, CHAR16 *file)
 	CHAR16 *base_path = NULL;
 	CHAR16 *abs_path = NULL;
 	UINTN len;
+	EFI_STATUS ret;
 
 	if (file[0] == L'\\')
 		return StrDuplicate(file);
@@ -154,9 +155,15 @@ CHAR16 *absolute_path(EFI_HANDLE image_handle, CHAR16 *file)
 	if (abs_path == NULL)
 		return NULL;
 
-	StrCpy(abs_path, base_path);
-	StrCat(abs_path, L"\\");
-	StrCat(abs_path, file);
+	ret = strcpy16_s(abs_path, len, base_path);
+	if (EFI_ERROR(ret))
+		return NULL;
+	ret = strcat16_s(abs_path, len, L"\\");
+	if (EFI_ERROR(ret))
+		return NULL;
+	ret = strcat16_s(abs_path, len, file);
+	if (EFI_ERROR(ret))
+		return NULL;
 
 	return abs_path;
 }

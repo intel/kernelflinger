@@ -118,8 +118,12 @@ EFI_STATUS set_device_security_info(__attribute__((unused)) IN void *security_da
 
 		debug(L"call GetRpmbKey of bootloader seed protocol success");
 
-		for(i = 0; i < key_count; i++)
-			memcpy(rpmb_keys[i], bls_rpmb_key[i].rpmb_key, RPMB_KEY_SIZE);
+		for(i = 0; i < key_count; i++) {
+			ret = memcpy_s(rpmb_keys[i], sizeof(rpmb_keys[0]), bls_rpmb_key[i].rpmb_key,
+						   RPMB_KEY_SIZE);
+			if (EFI_ERROR(ret))
+				return ret;
+		}
 
 		ret = set_rpmb_derived_key(rpmb_keys, key_count * RPMB_KEY_SIZE, key_count);
 		return ret;
@@ -203,7 +207,7 @@ EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
 
 		debug(L"call GetSeedInfoList success");
 		*num_seeds = blist.NumOfSeeds;
-		memcpy(seed_list, blist.SeedList, sizeof(blist.SeedList));
+		ret = memcpy_s(seed_list, sizeof(blist.SeedList), blist.SeedList, sizeof(blist.SeedList));
 		memset(&blist, 0, sizeof(blist));
 		barrier();
 		return ret;
@@ -226,12 +230,12 @@ EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
 	*num_seeds = 1;
 	tmp = (seed_info_t *)seed_list;
 	tmp->svn = BOOTLOADER_SEED_MAX_ENTRIES - 1;
-	memcpy(tmp->seed, seed, TRUSTY_SEED_SIZE);
+	ret = memcpy_s(tmp->seed, sizeof(tmp->seed), seed, TRUSTY_SEED_SIZE);
 	memset(seed, 0, sizeof(seed));
 	barrier();
 #endif
 
-	return EFI_SUCCESS;
+	return ret;
 }
 
 EFI_STATUS get_attkb_key(OUT VOID * key)

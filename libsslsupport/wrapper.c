@@ -325,12 +325,9 @@ void * __memcpy_chk(void* dest, const void* src,
 void * __memcpy_chk(void* dest, const void* src,
 			size_t copy_amount, size_t dest_len)
 {
-	if (dest_len < copy_amount) {
-		panic(L"%a Error: dest_len(%d) is less than copy_amount(%d)",
-			__func__, dest_len, copy_amount);
-	}
-
-	return memcpy(dest, src, copy_amount);
+    EFI_STATUS ret;
+    ret = memcpy_s(dest, dest_len, src, copy_amount);
+    return (ret == EFI_SUCCESS) ? (dest) : (NULL);
 }
 
 #define SECSPERMIN	60

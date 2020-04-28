@@ -161,15 +161,79 @@ CHAR8 *strcpy(CHAR8 *dest, const CHAR8 *src)
         return dest;
 }
 
+EFI_STATUS strcpy_s(char *restrict dest, size_t destsz, const char *restrict src)
+{
+        if (dest == src) {
+                debug(L"<strcpy_s dest == src");
+                return EFI_SUCCESS;
+        }
+
+        if ((dest == NULL) || (src == NULL)) {
+                error(L"<strcpy_s NULL 0x%x 0x%x", dest, src);
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (destsz == 0) {
+                error(L"<strcpy_s destsz == 0");
+                return EFI_BAD_BUFFER_SIZE;
+        }
+
+        if (src == NULL) {
+                error(L"<strcpy_s src == NULL");
+                while (destsz) { *dest = '\0'; destsz--; dest++; }
+                return EFI_INVALID_PARAMETER;
+        }
+
+        unsigned int i;
+        for (i = 0; src[i] != '\0'; i++)
+                dest[i] = src[i];
+        dest[i] = '\0';
+
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS strcpy16_s(CHAR16 *restrict dest, size_t destsz, const CHAR16 *restrict src)
+{
+        if (dest == src) {
+                debug(L"<strcpy_s dest == src");
+                return EFI_SUCCESS;
+        }
+
+        if ((dest == NULL) || (src == NULL)) {
+                error(L"<strcpy_s NULL 0x%x 0x%x", dest, src);
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (destsz == 0) {
+                error(L"<strcpy_s destsz == 0");
+                return EFI_BAD_BUFFER_SIZE;
+        }
+
+        if (src == NULL) {
+                error(L"<strcpy_s src == NULL");
+                while (destsz) { *dest = '\0'; destsz--; dest++; }
+                return EFI_INVALID_PARAMETER;
+        }
+
+        unsigned int i;
+        for (i = 0; src[i] != '\0'; i++)
+                dest[i] = src[i];
+        dest[i] = '\0';
+
+        return EFI_SUCCESS;
+}
+
 CHAR8 *__strcpy_chk(CHAR8 *dest, const CHAR8 *src, size_t destlen)
     __attribute__((weak));
 CHAR8 *__strcpy_chk(CHAR8 *dest, const CHAR8 *src, size_t destlen)
 {
+        EFI_STATUS ret;
         size_t len = strlen(src);
         if (destlen < len)
                 panic(L"%a Error: destlen(%d) is less than len(%d)", __func__, destlen, len);
 
-        return strcpy(dest, src);
+        ret = strcpy_s(dest, destlen, src);
+        return (ret == EFI_SUCCESS) ? (dest) : (NULL);
 }
 
 CHAR8 *strncpy(CHAR8 *dest, const CHAR8 *src, size_t n)
@@ -184,6 +248,310 @@ CHAR8 *strncpy(CHAR8 *dest, const CHAR8 *src, size_t n)
         return dest;
 }
 
+EFI_STATUS strncpy_s(char *restrict dest, size_t dmax, const char *restrict src, size_t slen)
+{
+        size_t orig_dmax;
+        char *orig_dest;
+        const char *overlap_bumper;
+
+        if (dest == NULL) {
+                error(L"<strncpy_s dest == NULL");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (dmax == 0) {
+                error(L"<strncpy_s dmax == 0");
+                return EFI_BAD_BUFFER_SIZE;
+        }
+
+        /* hold base in case src was not copied */
+        orig_dmax = dmax;
+        orig_dest = dest;
+
+        if (src == NULL) {
+                error(L"<strncpy_s src == NULL");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (slen == 0) {
+                error(L"<strncpy_s slen == 0");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (dest < src) {
+                overlap_bumper = src;
+
+                while (dmax > 0) {
+                        if (dest == overlap_bumper) {
+                                error(L"<strncpy_s dest == overlap_bumper");
+                                return EFI_INVALID_PARAMETER;
+                        }
+
+                        if (slen == 0) {
+                        /*
+                         * Copying truncated to slen chars.  Note that the TR says to
+                         * copy slen chars plus the null char.  We null the slack.
+                         */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        *dest = *src;
+                        if (*dest == '\0') {
+                                /* null slack */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        dmax--;
+                        slen--;
+                        dest++;
+                        src++;
+                }
+
+        } else {
+                overlap_bumper = dest;
+
+                while (dmax > 0) {
+                        if (src == overlap_bumper) {
+                               error(L"<strncpy_s dmax > 0");
+                               return EFI_INVALID_PARAMETER;
+                        }
+
+                        if (slen == 0) {
+                                /*
+                                 * Copying truncated to slen chars.  Note that the TR says to
+                                 * copy slen chars plus the null char.  We null the slack.
+                                 */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        *dest = *src;
+                        if (*dest == '\0') {
+                                /* null slack */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        dmax--;
+                        slen--;
+                        dest++;
+                        src++;
+                }
+        }
+
+        /*
+         * the entire src was not copied, so zero the string
+         */
+        error(L"<strncpy_s not enough space for src");
+        return EFI_BUFFER_TOO_SMALL;
+}
+
+EFI_STATUS strncpy16_s(CHAR16 *restrict dest, size_t dmax, const CHAR16 *restrict src, size_t slen)
+{
+        size_t orig_dmax;
+        CHAR16 *orig_dest;
+        const CHAR16 *overlap_bumper;
+
+        if (dest == NULL) {
+                error(L"<strncpy16_s dest == NULL");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (dmax == 0) {
+                error(L"<strncpy16_s dmax == 0");
+                return EFI_BAD_BUFFER_SIZE;
+        }
+
+        /* hold base in case src was not copied */
+        orig_dmax = dmax;
+        orig_dest = dest;
+
+        if (src == NULL) {
+                error(L"<strncpy16_s src == NULL");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (slen == 0) {
+                error(L"<strncpy16_s slen == 0");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (dest < src) {
+                overlap_bumper = src;
+
+                while (dmax > 0) {
+                        if (dest == overlap_bumper) {
+                                error(L"<strncpy16_s dest == overlap_bumper");
+                                return EFI_INVALID_PARAMETER;
+                        }
+
+                        if (slen == 0) {
+                        /*
+                         * Copying truncated to slen chars.  Note that the TR says to
+                         * copy slen chars plus the null char.  We null the slack.
+                         */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        *dest = *src;
+                        if (*dest == '\0') {
+                                /* null slack */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        dmax--;
+                        slen--;
+                        dest++;
+                        src++;
+                }
+
+        } else {
+                overlap_bumper = dest;
+
+                while (dmax > 0) {
+                        if (src == overlap_bumper) {
+                               error(L"<strncpy16_s src == overlap_bumper");
+                               return EFI_INVALID_PARAMETER;
+                        }
+
+                        if (slen == 0) {
+                                /*
+                                 * Copying truncated to slen chars.  Note that the TR says to
+                                 * copy slen chars plus the null char.  We null the slack.
+                                 */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        *dest = *src;
+                        if (*dest == '\0') {
+                                /* null slack */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        dmax--;
+                        slen--;
+                        dest++;
+                        src++;
+                }
+        }
+
+        /*
+         * the entire src was not copied, so zero the string
+         */
+        error(L"<strncpy16_s not enough space for src");
+        return EFI_BUFFER_TOO_SMALL;
+}
+
+EFI_STATUS strcat16_s (CHAR16 *restrict dest, size_t dmax, const CHAR16 *restrict src)
+{
+        size_t orig_dmax;
+        CHAR16 *orig_dest;
+        const CHAR16 *overlap_bumper;
+
+        if (dest == NULL) {
+                error(L"<strcat16_s dest == NULL");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (src == NULL) {
+                error(L"<strcat16_s src == NULL");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (dmax == 0) {
+                error(L"<strcat16_s dmax == 0");
+                return EFI_BAD_BUFFER_SIZE;
+        }
+
+        /* hold base of dest in case src was not copied */
+        orig_dmax = dmax;
+        orig_dest = dest;
+
+        if (dest < src) {
+                overlap_bumper = src;
+
+                /* Find the end of dest */
+                while (*dest != '\0') {
+                        if (dest == overlap_bumper) {
+                                error(L"<strcat16_s dest == overlap_bumper");
+                                return EFI_INVALID_PARAMETER;
+                        }
+
+                        dest++;
+                        dmax--;
+                        if (dmax == 0) {
+                                error(L"<strcat16_s dmax == 0");
+                                return EFI_BAD_BUFFER_SIZE;
+                        }
+                }
+
+                while (dmax > 0) {
+                        if (dest == overlap_bumper) {
+                            error(L"<strcat16_s dest == overlap_bumper");
+                            return EFI_INVALID_PARAMETER;
+                        }
+
+                        *dest = *src;
+                        if (*dest == '\0') {
+                            /* null slack to clear any data */
+                            while (dmax) { *dest = '\0'; dmax--; dest++; }
+                            return EFI_SUCCESS;
+                        }
+
+                        dmax--;
+                        dest++;
+                        src++;
+                }
+
+        } else {
+                overlap_bumper = dest;
+
+                /* Find the end of dest */
+                while (*dest != '\0') {
+                        /*
+                         * NOTE: no need to check for overlap here since src comes first
+                         * in memory and we're not incrementing src here.
+                         */
+                        dest++;
+                        dmax--;
+                        if (dmax == 0) {
+                                error(L"<strcat16_s dmax == 0");
+                                return EFI_BAD_BUFFER_SIZE;
+                        }
+                }
+
+                while (dmax > 0) {
+                        if (src == overlap_bumper) {
+                                error(L"<strcat16_s src == overlap_bumper");
+                                return EFI_INVALID_PARAMETER;
+                        }
+
+                        *dest = *src;
+                        if (*dest == '\0') {
+                                /* null slack to clear any data */
+                                while (dmax) { *dest = '\0'; dmax--; dest++; }
+                                return EFI_SUCCESS;
+                        }
+
+                        dmax--;
+                        dest++;
+                        src++;
+                }
+        }
+
+        /*
+         * the entire src was not copied, so null the string
+         */
+         error(L"<strcat16_s not enough space for src");
+         return EFI_BUFFER_TOO_SMALL;
+}
+
 CHAR8 *__strncpy_chk(CHAR8 *dest, const CHAR8 *src, size_t n, size_t destlen)
     __attribute__((weak));
 CHAR8 *__strncpy_chk(CHAR8 *dest, const CHAR8 *src, size_t n, size_t destlen)
@@ -191,7 +559,10 @@ CHAR8 *__strncpy_chk(CHAR8 *dest, const CHAR8 *src, size_t n, size_t destlen)
         if (destlen < n)
                 panic(L"%a Error: destlen(%d) is less than n(%d)", __func__, destlen, n);
 
-        return strncpy(dest, src, n);
+        EFI_STATUS ret;
+        ret = strncpy_s(dest, destlen, src, n);
+        return (ret == EFI_SUCCESS) ? (dest) : (NULL);
+
 }
 
 CHAR8 *__strncpy_chk2(CHAR8 *dest, const CHAR8 *src, size_t n, size_t destlen, size_t srclen)
@@ -273,6 +644,7 @@ int isdigit(int c)
 
 char *strdup(const char *s)
 {
+	EFI_STATUS ret;
 	UINTN size;
 	char *new;
 
@@ -281,8 +653,8 @@ char *strdup(const char *s)
 	if (!new)
 		return NULL;
 
-	memcpy(new, s, size);
-	return new;
+	ret = memcpy_s(new, size, s, size);
+	return (ret == EFI_SUCCESS) ? (new) : (NULL);
 }
 
 char *strcasestr(const char *s, const char *find)
@@ -712,12 +1084,17 @@ VOID StrNCpy(OUT CHAR16 *dest, IN const CHAR16 *src, UINT32 n)
 }
 
 
-UINT8 getdigit(IN CHAR16 *str)
+EFI_STATUS getdigit(IN CHAR16 *str, OUT UINT8 *outstr)
 {
+        EFI_STATUS ret;
         CHAR16 bytestr[3];
         bytestr[2] = 0;
-        StrNCpy(bytestr, str, 2);
-        return (UINT8)xtoi(bytestr);
+        ret = strncpy16_s(bytestr, sizeof(bytestr) / sizeof(CHAR16), str, 2);
+        if (EFI_ERROR(ret))
+            return ret;
+
+        *outstr = (UINT8)xtoi(bytestr);
+        return EFI_SUCCESS;
 }
 
 
@@ -726,9 +1103,13 @@ EFI_STATUS string_to_guid(
                 OUT EFI_GUID *guid)
 {
         CHAR16 gstr[37];
+        UINT8 val;
         int i;
+        EFI_STATUS ret;
 
-        StrNCpy(gstr, in_guid_str, 36);
+        ret = strncpy16_s(gstr, sizeof(gstr) / sizeof(CHAR16), in_guid_str, 36);
+        if (EFI_ERROR(ret))
+            return ret;
         gstr[36] = 0;
         gstr[8] = 0;
         gstr[13] = 0;
@@ -737,10 +1118,21 @@ EFI_STATUS string_to_guid(
         guid->Data2 = (UINT16)xtoi(&gstr[9]);
         guid->Data3 = (UINT16)xtoi(&gstr[14]);
 
-        guid->Data4[0] = getdigit(&gstr[19]);
-        guid->Data4[1] = getdigit(&gstr[21]);
-        for (i = 0; i < 6; i++)
-                guid->Data4[i + 2] = getdigit(&gstr[24 + (i * 2)]);
+        ret = getdigit(&gstr[19], &val);
+        if (EFI_ERROR(ret))
+            return ret;
+        guid->Data4[0] = val;
+
+        ret = getdigit(&gstr[21], &val);
+        if (EFI_ERROR(ret))
+            return ret;
+        guid->Data4[1] = val;
+        for (i = 0; i < 6; i++) {
+                ret = getdigit(&gstr[24 + (i * 2)], &val);
+                if (EFI_ERROR(ret))
+                        return ret;
+                guid->Data4[i + 2] = val;
+        }
 
         return EFI_SUCCESS;
 }
@@ -988,13 +1380,38 @@ void *memcpy(void *dest, const void *source, size_t count)
         return dest;
 }
 
+EFI_STATUS memcpy_s(void *dest, size_t dest_size, const void *source, size_t count)
+{
+        if (count == 0) {
+                debug(L"<memcpy_s count NULL");
+                return EFI_SUCCESS;
+        }
+
+        if (dest == NULL) {
+                error(L"<memcpy_s dest NULL");
+                return EFI_INVALID_PARAMETER;
+        }
+
+        if (source == NULL || dest_size < count) {
+                CopyMem(dest, 0, (UINTN)dest_size);
+                error(L"<memcpy_s BAD_BUFFER_SIZE 0x%x %d %d", source, dest_size, count);
+                return EFI_BAD_BUFFER_SIZE;
+        }
+
+        CopyMem(dest, source, (UINTN)count);
+        return EFI_SUCCESS;
+}
+
 void *memmove(void *dst, const void *src, size_t n)
 {
         size_t offs;
         ssize_t i;
 
-        if (src > dst)
-                return memcpy(dst, src, n);
+        if (src > dst) {
+                EFI_STATUS ret;
+                ret = memcpy_s(dst, n, src, n);
+                return (ret == EFI_SUCCESS) ? (dst) : (NULL);
+        }
 
         offs = n - (n % sizeof(unsigned long));
 

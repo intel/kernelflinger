@@ -377,6 +377,7 @@ static void setup_e820_map(struct boot_params *boot_params,
  * (allocation, print, ...) in this function.  */
 static EFI_STATUS setup_memory_map(struct boot_params *boot_params, UINTN *key)
 {
+        EFI_STATUS ret;
         UINTN nr_entries, entry_sz;
         EFI_MEMORY_DESCRIPTOR *mem_entries;
         UINT32 entry_ver;
@@ -408,8 +409,13 @@ static EFI_STATUS setup_memory_map(struct boot_params *boot_params, UINTN *key)
                 efi->efi_memmap_hi = (EFI_PHYSICAL_ADDRESS)mem_entries >> 32;
 #endif
 
-                memcpy(&efi->efi_loader_signature,
-                       EFI_LOADER_SIGNATURE, sizeof(efi->efi_loader_signature));
+                ret = memcpy_s(&efi->efi_loader_signature, sizeof(efi->efi_loader_signature),
+                               EFI_LOADER_SIGNATURE, sizeof(efi->efi_loader_signature));
+                if (EFI_ERROR(ret)) {
+                        FreePool(mem_entries);
+                        return ret;
+                }
+
         }
 
         setup_e820_map(boot_params, mem_entries, nr_entries, entry_sz);
@@ -555,7 +561,10 @@ static EFI_STATUS setup_ramdisk(UINT8 *bootimage)
                 efree(ramdisk_addr, rsize);
                 return EFI_OUT_OF_RESOURCES;
         }
-        memcpy((VOID *)(UINTN)ramdisk_addr, bootimage + roffset, rsize);
+        ret = memcpy_s((VOID *)(UINTN)ramdisk_addr, rsize, bootimage + roffset, rsize);
+        if (EFI_ERROR(ret))
+                return ret;
+
         bp->hdr.ramdisk_start = (UINT32)(UINTN)ramdisk_addr;
         return EFI_SUCCESS;
 }
@@ -781,6 +790,7 @@ EFI_STATUS prepend_command_line(CHAR16 **cmdline, CHAR16 *fmt, ...)
 static CHAR16 *get_command_line(IN struct boot_img_hdr *aosp_header,
                                 IN enum boot_target boot_target)
 {
+        EFI_STATUS ret;
         CHAR16 *cmdline16 = NULL;
 #ifndef USER
         CHAR16 *cmdline_append = NULL;
@@ -801,15 +811,20 @@ static CHAR16 *get_command_line(IN struct boot_img_hdr *aosp_header,
                 int offset = BOOT_ARGS_SIZE;
 
                 /* include the potential NUL terminal char */
-                memcpy(full_cmdline, aosp_header->cmdline, BOOT_ARGS_SIZE);
+                ret = memcpy_s(full_cmdline, sizeof(full_cmdline), aosp_header->cmdline,
+                               BOOT_ARGS_SIZE);
+                if (EFI_ERROR(ret))
+                        return NULL;
+
                 /* if there is extra cmdline arguments */
                 if (aosp_header->extra_cmdline[0]) {
                         /* legacy boot.img format cmdline is NUL terminated */
                         if (!aosp_header->cmdline[BOOT_ARGS_SIZE - 1])
                                 offset--;
-                        memcpy(full_cmdline + offset,
-                               aosp_header->extra_cmdline,
-                               BOOT_EXTRA_ARGS_SIZE);
+                        ret = memcpy_s(full_cmdline + offset, sizeof(full_cmdline),
+                                       aosp_header->extra_cmdline, BOOT_EXTRA_ARGS_SIZE);
+                        if (EFI_ERROR(ret))
+                                return NULL;
                 }
 
                 cmdline16 = stra_to_str(full_cmdline);
@@ -1161,7 +1176,11 @@ static EFI_STATUS setup_command_line(
                 char *vb_cmdline;
                 vb_cmdline = get_vb_cmdline(vb_data);
                 cmdline[cmdlen] = ' ';
-                memcpy(cmdline + cmdlen + 1, vb_cmdline, vb_cmdlen);
+                ret = memcpy_s(cmdline + cmdlen + 1, vb_cmdlen, vb_cmdline, vb_cmdlen);
+                if (EFI_ERROR(ret)) {
+                        free_pages(cmdline_addr, EFI_SIZE_TO_PAGES(cmdsize));
+                        goto out;
+                }
                 cmdlen += vb_cmdlen + 1;
                 cmdline[cmdlen] = 0;
         }
@@ -1170,7 +1189,11 @@ static EFI_STATUS setup_command_line(
         if (abl_cmd_len > 0)
         {
                 cmdline[cmdlen] = ' ';
-                memcpy(cmdline + cmdlen + 1, abl_cmd_line, abl_cmd_len + 1);
+                ret = memcpy_s(cmdline + cmdlen + 1, abl_cmd_len + 1, abl_cmd_line, abl_cmd_len + 1);
+                if (EFI_ERROR(ret)) {
+                        free_pages(cmdline_addr, EFI_SIZE_TO_PAGES(cmdsize));
+                        goto out;
+                }
                 cmdlen += abl_cmd_len + 1;
                 cmdline[cmdlen] = 0;
         }
@@ -1251,7 +1274,10 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
                         return ret;
         }
 
-        memcpy((CHAR8 *)(UINTN)kernel_start, bootimage + koffset + setup_size, ksize);
+        ret = memcpy_s((CHAR8 *)(UINTN)kernel_start, init_size, bootimage + koffset + setup_size,
+                       ksize);
+        if (EFI_ERROR(ret))
+                goto out;
 
         boot_addr = 0x3fffffff;
         ret = allocate_pages(AllocateMaxAddress, EfiLoaderData,
@@ -1279,11 +1305,16 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
         memset(boot_params, 0x0, 16384);
 
         /* Save screen_info */
-        memcpy(&boot_params->screen_info, &buf->screen_info,
-                sizeof(struct screen_info));
+        ret = memcpy_s(&boot_params->screen_info, sizeof(struct screen_info), &buf->screen_info,
+                       sizeof(struct screen_info));
+        if (EFI_ERROR(ret))
+                goto out;
+
         /* See Linux Documentation/x86/boot.txt */
-        memcpy(&boot_params->hdr, (CHAR8 *)(&buf->hdr),
-               ((CHAR8 *)buf)[0x201] + 0x202 - offsetof(struct boot_params, hdr));
+        ret = memcpy_s(&boot_params->hdr, sizeof(boot_params->hdr), (CHAR8 *)(&buf->hdr),
+                       ((CHAR8 *)buf)[0x201] + 0x202 - offsetof(struct boot_params, hdr));
+        if (EFI_ERROR(ret))
+                goto out;
         boot_params->hdr.code32_start = (UINT32)((UINT64)kernel_start);
 
         ret = handover_jump(parent_image, boot_params, kernel_start);

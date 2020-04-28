@@ -480,7 +480,10 @@ EFI_STATUS emmc_read_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT16
 		efi_perror(ret, L"Failed to generate random numbers");
 		goto out;
 	}
-	memcpy(data_in_frame.nonce, random, RPMB_NONCE_SIZE);
+	ret = memcpy_s(data_in_frame.nonce, sizeof(data_in_frame.nonce), random, RPMB_NONCE_SIZE);
+	if (EFI_ERROR(ret))
+		goto out;
+
 	ret = emmc_rpmb_request_response_passthru(rpmb_dev, &data_in_frame, data_out_frame, 1,
 			blk_count, RPMB_RESPONSE_AUTH_READ, result);
 	if (EFI_ERROR(ret))
@@ -497,8 +500,11 @@ EFI_STATUS emmc_read_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT16
 		ret = EFI_ABORTED;
 		goto out;
 	}
-	for (i = 0; i < blk_count; i++)
-		memcpy((UINT8 *)buffer + i * 256, data_out_frame[i].data, 256);
+	for (i = 0; i < blk_count; i++) {
+		ret = memcpy_s((UINT8 *)buffer + i * 256, 256, data_out_frame[i].data, 256);
+		if (EFI_ERROR(ret))
+			goto out;
+	}
 
 out:
 	ret_switch_partition = emmc_partition_switch_passthru(rpmb_dev, current_part);
@@ -605,7 +611,10 @@ EFI_STATUS emmc_write_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT1
 		data_in_frame->block_count = CPU_TO_BE16_SWAP(1);
 		data_in_frame->req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_AUTH_WRITE);
 		data_in_frame->write_counter = CPU_TO_BE32_SWAP(write_counter);
-		memcpy(&data_in_frame->data, (UINT8 *)buffer + i * 256, 256);
+		ret = memcpy_s(&data_in_frame->data, sizeof (data_in_frame->data),
+					   (UINT8 *)buffer + i * 256, 256);
+		if (EFI_ERROR(ret))
+			goto out;
 
 		if (rpmb_calc_hmac_sha256(data_in_frame, 1,
 				key, RPMB_KEY_SIZE,
@@ -614,7 +623,9 @@ EFI_STATUS emmc_write_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT1
 			goto out;
 		}
 
-		memcpy(data_in_frame->key_mac, mac, RPMB_DATA_MAC);
+		ret = memcpy_s(data_in_frame->key_mac, sizeof(data_in_frame->key_mac), mac, RPMB_DATA_MAC);
+		if (EFI_ERROR(ret))
+			goto out;
 		ret = emmc_rpmb_send_request_passthru(rpmb_dev, data_in_frame, 1, TRUE);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Failed to send request to rpmb");
@@ -673,7 +684,9 @@ EFI_STATUS emmc_program_key_passthru(void *rpmb_dev, const void *key, RPMB_RESPO
 
 	memset(&data_frame, 0, sizeof(data_frame));
 	data_frame.req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_KEY_WRITE);
-	memcpy(data_frame.key_mac, key, RPMB_KEY_SIZE);
+	ret = memcpy_s(data_frame.key_mac, sizeof(data_frame.key_mac), key, RPMB_KEY_SIZE);
+	if (EFI_ERROR(ret))
+		goto out;
 	ret = emmc_rpmb_send_request_passthru(rpmb_dev, &data_frame, 1, TRUE);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to request rpmb");
@@ -1081,7 +1094,11 @@ EFI_STATUS emmc_rpmb_send_request_sdio(void *rpmb_dev,
 		return ret;
 	}
 
-	memcpy(rdf, data_frame, RPMB_DATA_FRAME_SIZE * count);
+	ret = memcpy_s(rdf, sizeof(rpmb_data_frame), data_frame, RPMB_DATA_FRAME_SIZE * count);
+	if (EFI_ERROR(ret)) {
+		FreePool(rawbuffer);
+		return ret;
+	}
 
 	ret = uefi_call_wrapper(sdio->SendCommand, 9, sdio,
 				WRITE_MULTIPLE_BLOCK, 0, OutData, (VOID *)rdf,
@@ -1133,13 +1150,17 @@ EFI_STATUS emmc_rpmb_get_response_sdio(void *rpmb_dev,
 	ret = uefi_call_wrapper(sdio->SendCommand, 9, sdio,
 				READ_MULTIPLE_BLOCK, 0, InData, (VOID *)rdf,
 				RPMB_DATA_FRAME_SIZE * count, ResponseR1, TIMEOUT_DATA, &status);
-	memcpy(data_frame, rdf, RPMB_DATA_FRAME_SIZE * count);
-	FreePool(rawbuffer);
-
 	if (EFI_ERROR(ret)) {
+		FreePool(rawbuffer);
 		efi_perror(ret, L"Failed to send command READ_MULTIPLE_BLOCK");
 		return ret;
 	}
+
+	ret = memcpy_s(data_frame, sizeof(rpmb_data_frame), rdf, RPMB_DATA_FRAME_SIZE * count);
+	FreePool(rawbuffer);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	if (status & STATUS_ERROR_MASK) {
 		error(L"status error in READ_MULTIPLE_BLOCK, status=0x%08x", status);
 		return EFI_ABORTED;
@@ -1221,7 +1242,9 @@ EFI_STATUS emmc_read_rpmb_data_sdio(void *rpmb_dev, UINT16 blk_count, UINT16 blk
 		efi_perror(ret, L"Failed to generate random numbers");
 		goto out;
 	}
-	memcpy(data_in_frame.nonce, random, RPMB_NONCE_SIZE);
+	ret = memcpy_s(data_in_frame.nonce, sizeof(data_in_frame.nonce), random, RPMB_NONCE_SIZE);
+	if (EFI_ERROR(ret))
+		goto out;
 	ret = emmc_rpmb_request_response_sdio(sdio, &data_in_frame, data_out_frame, 1, blk_count,
 		RPMB_RESPONSE_AUTH_READ, result);
 	if (EFI_ERROR(ret))
@@ -1238,8 +1261,11 @@ EFI_STATUS emmc_read_rpmb_data_sdio(void *rpmb_dev, UINT16 blk_count, UINT16 blk
 		ret = EFI_ABORTED;
 		goto out;
 	}
-	for (i = 0; i < blk_count; i++)
-		memcpy((UINT8 *)buffer + i * 256, data_out_frame[i].data, 256);
+	for (i = 0; i < blk_count; i++) {
+		ret = memcpy_s((UINT8 *)buffer + i * 256, 256, data_out_frame[i].data, 256);
+		if (EFI_ERROR(ret))
+			goto out;
+	}
 
 out:
 	ret_switch_partition = emmc_partition_switch_sdio(sdio, current_part);
@@ -1351,7 +1377,10 @@ EFI_STATUS emmc_write_rpmb_data_sdio(void *rpmb_dev, UINT16 blk_count, UINT16 bl
 		data_in_frame->block_count = CPU_TO_BE16_SWAP(1);
 		data_in_frame->req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_AUTH_WRITE);
 		data_in_frame->write_counter = CPU_TO_BE32_SWAP(write_counter);
-		memcpy(&data_in_frame->data, (UINT8 *)buffer + i * 256, 256);
+		ret = memcpy_s(&data_in_frame->data, sizeof(data_in_frame->data),
+					   (UINT8 *)buffer + i * 256, 256);
+		if (EFI_ERROR(ret))
+			goto out;
 
 		if (rpmb_calc_hmac_sha256(data_in_frame, 1,
 			key, RPMB_KEY_SIZE,
@@ -1360,7 +1389,9 @@ EFI_STATUS emmc_write_rpmb_data_sdio(void *rpmb_dev, UINT16 blk_count, UINT16 bl
 			goto out;
 		}
 
-		memcpy(data_in_frame->key_mac, mac, RPMB_DATA_MAC);
+		ret = memcpy_s(data_in_frame->key_mac, sizeof(data_in_frame->key_mac), mac, RPMB_DATA_MAC);
+		if (EFI_ERROR(ret))
+			goto out;
 		ret = emmc_rpmb_send_request_sdio(sdio, data_in_frame, 1, TRUE);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Failed to send request to rpmb");
@@ -1416,7 +1447,9 @@ EFI_STATUS emmc_program_key_sdio(void *rpmb_dev, const void *key, RPMB_RESPONSE_
 
 	memset(&data_frame, 0, sizeof(data_frame));
 	data_frame.req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_KEY_WRITE);
-	memcpy(data_frame.key_mac, key, RPMB_KEY_SIZE);
+	ret = memcpy_s(data_frame.key_mac, sizeof(data_frame.key_mac), key, RPMB_KEY_SIZE);
+	if (EFI_ERROR(ret))
+		goto out;
 	ret = emmc_rpmb_send_request_sdio(sdio, &data_frame, 1, TRUE);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to request rpmb");

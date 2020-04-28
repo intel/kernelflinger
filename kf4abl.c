@@ -633,11 +633,19 @@ static enum boot_target check_command_line(EFI_HANDLE image, CHAR8 *cmd_buf, UIN
 			}
 
 			if (cmd_buf[0] != 0) {
-				strncpy((CHAR8 *)(cmd_buf + cmd_len), (const CHAR8 *)" ", 1);
+				ret = strncpy_s((CHAR8 *)(cmd_buf + cmd_len), 1, (const CHAR8 *)" ", 1);
+				if (EFI_ERROR(ret)) {
+					target = FASTBOOT;
+					goto out;
+				}
 				cmd_len++;
 			}
 
-			strncpy((CHAR8 *)(cmd_buf + cmd_len), (const CHAR8 *)arg8, arglen);
+			ret = strncpy_s((CHAR8 *)(cmd_buf + cmd_len), arglen, (const CHAR8 *)arg8, arglen);
+			if (EFI_ERROR(ret)) {
+					target = FASTBOOT;
+					goto out;
+			}
 			cmd_len += arglen;
 		}
 	}

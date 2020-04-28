@@ -359,41 +359,60 @@ static EFI_STATUS flash_new_bootimage(VOID *kernel, UINTN kernel_size,
 	}
 
 	/* Create the new bootimage. */
-	memcpy((VOID *)new_bootimage, bootimage, sizeof(*bootimage));
+	ret = memcpy_s((VOID *)new_bootimage, new_size, bootimage, sizeof(*bootimage));
+	if (EFI_ERROR(ret))
+		goto out1;
 
 	cur = (VOID *)bootimage + page_size;
 	new_cur = (VOID *)new_bootimage + page_size;
 
 	new_bootimage->kernel_size = kernel_size;
-	memcpy(new_cur, kernel, kernel_size);
+	ret = memcpy_s(new_cur, new_size - page_size, kernel, kernel_size);
+	if (EFI_ERROR(ret))
+		goto out1;
 
 	cur += pagealign(bootimage, bootimage->kernel_size);
 	new_cur += pagealign(new_bootimage, kernel_size);
 
 	new_bootimage->ramdisk_size = ramdisk_size;
-	memcpy(new_cur, ramdisk, ramdisk_size);
+	ret = memcpy_s(new_cur, new_size - page_size - pagealign(new_bootimage, kernel_size),
+				   ramdisk, ramdisk_size);
+	if (EFI_ERROR(ret))
+		goto out1;
 
 	cur += pagealign(bootimage, bootimage->ramdisk_size);
 	new_cur += pagealign(new_bootimage, ramdisk_size);
 
-	memcpy(new_cur, cur, bootimage->second_size);
+	ret = memcpy_s(new_cur,
+				   new_size - page_size - pagealign(new_bootimage, kernel_size) - pagealign(new_bootimage, ramdisk_size),
+				   cur, bootimage->second_size);
+	if (EFI_ERROR(ret))
+		goto out1;
+
 
 	if (bootimage->header_version >= 1) {
-		memcpy(new_bootimage + new_bootimage->recovery_acpio_offset,
-			   bootimage + bootimage->recovery_acpio_offset,
-			   bootimage->recovery_acpio_size);
+		ret = memcpy_s(new_bootimage + new_bootimage->recovery_acpio_offset,
+					   bootimage->recovery_acpio_size,
+					   bootimage + bootimage->recovery_acpio_offset,
+					   bootimage->recovery_acpio_size);
+		if (EFI_ERROR(ret))
+			goto out1;
 	}
 
 	if (bootimage->header_version == 2) {
-		memcpy(new_bootimage + new_bootimage->acpi_addr,
-			   bootimage + bootimage->acpi_addr,
-			   bootimage->acpi_size);
+		ret = memcpy_s(new_bootimage + new_bootimage->acpi_addr,
+					   bootimage->acpi_size,
+					   bootimage + bootimage->acpi_addr,
+					   bootimage->acpi_size);
+		if (EFI_ERROR(ret))
+			goto out1;
 	}
 
 	/* Flash new the bootimage. */
 	cur_offset = gparti.part.starting_lba * gparti.bio->Media->BlockSize;
 	ret = flash_write(new_bootimage, new_size);
 
+out1:
 	FreePool(new_bootimage);
 
 out:

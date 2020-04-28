@@ -286,7 +286,9 @@ EFI_STATUS ufs_read_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT16 
 		efi_perror(ret, L"Failed to generate random numbers");
 		goto out;
 	}
-	memcpy(data_in_frame.nonce, random, RPMB_NONCE_SIZE);
+	ret = memcpy_s(data_in_frame.nonce, sizeof(data_in_frame.nonce), random, RPMB_NONCE_SIZE);
+	if (EFI_ERROR(ret))
+		goto out;
 	ret = ufs_rpmb_request_response_passthru(rpmb_dev, &data_in_frame, data_out_frame, 1,
 			blk_count, RPMB_RESPONSE_AUTH_READ, result);
 	if (EFI_ERROR(ret))
@@ -303,8 +305,11 @@ EFI_STATUS ufs_read_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT16 
 		ret = EFI_ABORTED;
 		goto out;
 	}
-	for (i = 0; i < blk_count; i++)
-		memcpy((UINT8 *)buffer + i * 256, data_out_frame[i].data, 256);
+	for (i = 0; i < blk_count; i++) {
+		ret = memcpy_s((UINT8 *)buffer + i * 256, 256, data_out_frame[i].data, 256);
+		if (EFI_ERROR(ret))
+			goto out;
+	}
 
 out:
 
@@ -391,7 +396,10 @@ EFI_STATUS ufs_write_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT16
 		data_in_frame->block_count = CPU_TO_BE16_SWAP(1);
 		data_in_frame->req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_AUTH_WRITE);
 		data_in_frame->write_counter = CPU_TO_BE32_SWAP(write_counter);
-		memcpy(&data_in_frame->data, (UINT8 *)buffer + i * 256, 256);
+		ret = memcpy_s(&data_in_frame->data, sizeof(data_in_frame->data),
+					   (UINT8 *)buffer + i * 256, 256);
+		if (EFI_ERROR(ret))
+			goto out;
 
 		if (rpmb_calc_hmac_sha256(data_in_frame, 1,
 				key, RPMB_KEY_SIZE,
@@ -400,7 +408,9 @@ EFI_STATUS ufs_write_rpmb_data_passthru(void *rpmb_dev, UINT16 blk_count, UINT16
 			goto out;
 		}
 
-		memcpy(data_in_frame->key_mac, mac, RPMB_DATA_MAC);
+		ret = memcpy_s(data_in_frame->key_mac, sizeof(data_in_frame->key_mac), mac, RPMB_DATA_MAC);
+		if (EFI_ERROR(ret))
+			goto out;
 		ret = ufs_rpmb_send_request_passthru(rpmb_dev, data_in_frame, 1, TRUE);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Failed to send request to rpmb");
@@ -446,7 +456,9 @@ EFI_STATUS ufs_program_key_passthru(void *rpmb_dev, const void *key, RPMB_RESPON
 
 	memset(&data_frame, 0, sizeof(data_frame));
 	data_frame.req_resp = CPU_TO_BE16_SWAP(RPMB_REQUEST_KEY_WRITE);
-	memcpy(data_frame.key_mac, key, RPMB_KEY_SIZE);
+	ret = memcpy_s(data_frame.key_mac, sizeof(data_frame.key_mac), key, RPMB_KEY_SIZE);
+	if (EFI_ERROR(ret))
+		return ret;
 	ret = ufs_rpmb_send_request_passthru(rpmb_dev, &data_frame, 1, TRUE);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to request rpmb");

@@ -131,7 +131,11 @@ EFI_STATUS simulate_get_rpmb_counter(UINT32 *write_counter, const void *key,
 		*result = RPMB_RES_AUTH_FAILURE;
 		return EFI_ABORTED;
 	}
-	memcpy(counter_data, &data[MAGIC_KEY_SIZE + RPMB_KEY_SIZE], WRITE_COUNTER_SIZE);
+	ret = memcpy_s(counter_data, sizeof(counter_data), &data[MAGIC_KEY_SIZE + RPMB_KEY_SIZE],
+				   WRITE_COUNTER_SIZE);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	*write_counter = ((UINT32)counter_data[0]) << 24;
 	*write_counter |= ((UINT32)counter_data[1]) << 16;
 	*write_counter |= ((UINT32)counter_data[2]) << 8;
@@ -159,8 +163,12 @@ EFI_STATUS simulate_program_rpmb_key(const void *key, RPMB_RESPONSE_RESULT *resu
 	memset(data, 0, sizeof(data));
 	if (memcmp(magic, MAGIC_KEY_DATA, MAGIC_KEY_SIZE)) {
 		debug(L"rpmb key not provisioned");
-		memcpy(data, MAGIC_KEY_DATA, MAGIC_KEY_SIZE);
-		memcpy(&data[MAGIC_KEY_SIZE], key, RPMB_KEY_SIZE);
+		ret = memcpy_s(data, sizeof(data), MAGIC_KEY_DATA, MAGIC_KEY_SIZE);
+		if (EFI_ERROR(ret))
+			return ret;
+		ret = memcpy_s(&data[MAGIC_KEY_SIZE], sizeof(data), key, RPMB_KEY_SIZE);
+		if (EFI_ERROR(ret))
+			return ret;
 
 		ret = rpmb_simulate_read_write_teedata_partition(FALSE, MAGIC_KEY_OFFSET,
 				MAGIC_KEY_SIZE + RPMB_KEY_SIZE + WRITE_COUNTER_SIZE, data);

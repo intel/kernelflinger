@@ -147,9 +147,13 @@ static void EFIAPI data_received(__attribute__((__unused__)) EFI_EVENT evt, void
 		return;
 	}
 
-	memcpy(rx.buf + rx.received,
-	       data->FragmentTable[0].FragmentBuffer,
-	       data->FragmentTable[0].FragmentLength);
+	ret = memcpy_s(rx.buf + rx.received, rx.size,
+				   data->FragmentTable[0].FragmentBuffer,
+				   data->FragmentTable[0].FragmentLength);
+	if (EFI_ERROR(ret)) {
+		rx.receiving = FALSE;
+		return;
+	}
 
 	rx.received += data->FragmentTable[0].FragmentLength;
 	rx.requested -= token->requested;
@@ -387,9 +391,8 @@ static EFI_STATUS ip_configuration(UINT32 port, EFI_IPv4_ADDRESS *address)
 		}
 	}
 
-	memcpy(address, &ip_data.ConfigData.StationAddress, sizeof(*address));
-
-	return EFI_SUCCESS;
+	ret = memcpy_s(address, sizeof(*address), &ip_data.ConfigData.StationAddress, sizeof(*address));
+	return ret;
 }
 
 EFI_STATUS tcp_start(UINT32 port, start_callback_t start_cb,

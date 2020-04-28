@@ -25,7 +25,7 @@ static struct gcm_key attkb_key = {0};
 static encrypted_attkb_t enc_kb;
 static UINT8 *start_kb_addr = NULL;
 
-static void prepare_aad(encrypted_attkb_t *enc_kb, UINT8 *iv, UINTN kb_sz)
+static EFI_STATUS prepare_aad(encrypted_attkb_t *enc_kb, UINT8 *iv, UINTN kb_sz)
 {
 	memset(enc_kb, 0, sizeof(encrypted_attkb_t));
 	enc_kb->header.version = 1;
@@ -33,7 +33,7 @@ static void prepare_aad(encrypted_attkb_t *enc_kb, UINT8 *iv, UINTN kb_sz)
 	enc_kb->header.format.encrypted = 1;
 	enc_kb->cipher_blob.format_version = 1;
 	enc_kb->cipher_blob.blob_sz = kb_sz;
-	memcpy(enc_kb->cipher_blob.iv, iv, GCM_IV_SIZE);
+	return memcpy_s(enc_kb->cipher_blob.iv, sizeof(enc_kb->cipher_blob.iv), iv, GCM_IV_SIZE);
 }
 
 static EFI_STATUS encrypt_keybox(UINT8 *kb_data, UINTN kb_sz,UINT8 *out, UINTN *out_sz)
@@ -49,7 +49,10 @@ static EFI_STATUS encrypt_keybox(UINT8 *kb_data, UINTN kb_sz,UINT8 *out, UINTN *
 		return ret;
 	}
 
-	prepare_aad(&enc_kb, iv, kb_sz);
+	ret = prepare_aad(&enc_kb, iv, kb_sz);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	rc = aes_256_gcm_encrypt(&attkb_key,
 			iv, GCM_IV_SIZE,
 			&enc_kb, sizeof(enc_kb),
@@ -59,7 +62,8 @@ static EFI_STATUS encrypt_keybox(UINT8 *kb_data, UINTN kb_sz,UINT8 *out, UINTN *
 	if (rc == AES_GCM_NO_ERROR) {
 		//update tag
 		tag_offset = *out_sz - GCM_TAG_SIZE;
-		memcpy(enc_kb.cipher_blob.tag, out + tag_offset, GCM_TAG_SIZE);
+		ret = memcpy_s(enc_kb.cipher_blob.tag, sizeof(enc_kb.cipher_blob.tag),
+					   out + tag_offset, GCM_TAG_SIZE);
 	} else {
 		ret = EFI_ABORTED;
 		efi_perror(ret, L"Failed to encrypt keybox");
@@ -69,15 +73,19 @@ static EFI_STATUS encrypt_keybox(UINT8 *kb_data, UINTN kb_sz,UINT8 *out, UINTN *
 
 }
 
-static void prepare_attkb_metadata_block(attkb_meta_block_t *data, UINTN kb_size)
+static EFI_STATUS prepare_attkb_metadata_block(attkb_meta_block_t *data, UINTN kb_size)
 {
-	memcpy(data->signature, ATTKB_META_SIGNATURE, ATTKB_META_SIGNATURE_LENGTH);
+	EFI_STATUS ret;
+	ret = memcpy_s(data->signature, sizeof(data->signature),
+				   ATTKB_META_SIGNATURE, ATTKB_META_SIGNATURE_LENGTH);
+	if (EFI_ERROR(ret))
+		return ret;
 	data->length = RPMB_BLOCK_SIZE;
 	data->revision = 0;
 	data->flag |= ATTKB_PRESENT_FLAG_BIT;
 	data->attkb_addr = ATTKB_META_BASE_ADDRESS + 1;
 	data->attkb_size = kb_size;
-
+	return EFI_SUCCESS;
 }
 
 static EFI_STATUS write_attkb_data_real(UINT8 *start_kb_addr, UINTN write_sz)
@@ -99,7 +107,11 @@ static EFI_STATUS write_attkb_data_real(UINT8 *start_kb_addr, UINTN write_sz)
 
 	blk_cnt = write_sz / RPMB_BLOCK_SIZE;
 	remain = write_sz % RPMB_BLOCK_SIZE;
-	get_rpmb_key(rpmb_key);
+	ret = get_rpmb_key(rpmb_key);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to get keybox data");
+		goto exit;
+	}
 	ret = write_rpmb_data(NULL, blk_cnt, blk_addr, data_addr, rpmb_key, &rpmb_result);
 	debug(L"ret=%d, rpmb_result=%d", ret, rpmb_result);
 	if (EFI_ERROR(ret)) {
@@ -111,7 +123,9 @@ static EFI_STATUS write_attkb_data_real(UINT8 *start_kb_addr, UINTN write_sz)
 
 	if (remain) {
 		memset(rpmb_buffer, 0, RPMB_BLOCK_SIZE);
-		memcpy(rpmb_buffer, data_addr, remain);
+		ret = memcpy_s(rpmb_buffer, sizeof(rpmb_buffer), data_addr, remain);
+		if (EFI_ERROR(ret))
+			goto exit;
 		ret = write_rpmb_data(NULL, 1, blk_addr, data_addr, rpmb_key, &rpmb_result);
 		debug(L"ret=%d, rpmb_result=%d", ret, rpmb_result);
 		if (EFI_ERROR(ret)) {
@@ -172,10 +186,14 @@ EFI_STATUS flash_keybox(VOID *data, UINTN size)
 
 	addr = start_kb_addr;
 	kb_meta_sz = sizeof(encrypted_attkb_t) + size;
-	prepare_attkb_metadata_block((attkb_meta_block_t *)addr, kb_meta_sz);
+	ret = prepare_attkb_metadata_block((attkb_meta_block_t *)addr, kb_meta_sz);
+	if (EFI_ERROR(ret))
+		goto exit;
 
 	addr = addr + sizeof(attkb_meta_block_t);
-	memcpy(addr, &enc_kb, sizeof(encrypted_attkb_t));
+	ret = memcpy_s(addr, sizeof(encrypted_attkb_t), &enc_kb, sizeof(encrypted_attkb_t));
+	if (EFI_ERROR(ret))
+		goto exit;
 
 	write_sz = sizeof(attkb_meta_block_t) + sizeof(encrypted_attkb_t) + size;
 #ifndef RPMB_SIMULATE

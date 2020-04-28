@@ -245,6 +245,7 @@ EFIAPI EFI_STATUS data_handler(EFI_USB_DEVICE_XFER_INFO *XferInfo)
 
 static void set_string16_table_line(UINTN line, CHAR16 *str)
 {
+	EFI_STATUS ret;
 	UINTN size;
 
 	size = (StrLen(str) + 1) * sizeof(CHAR16);
@@ -254,7 +255,10 @@ static void set_string16_table_line(UINTN line, CHAR16 *str)
 		return;
 	}
 
-	memcpy(string_table[line].LangID, str, size);
+	ret = memcpy_s(string_table[line].LangID, sizeof(string_table[0].LangID), str, size);
+	if (EFI_ERROR(ret))
+		return;
+
 	string_table[line].Length = size;
 }
 

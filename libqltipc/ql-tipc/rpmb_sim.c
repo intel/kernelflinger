@@ -162,10 +162,13 @@ static int get_key(uint8_t *key)
 
 static int program_key(const uint8_t *key)
 {
+    EFI_STATUS ret;
     int rc = 0;
     uint8_t key_temp[32];
 
-    memcpy(&key_temp, key, 32);
+    ret = memcpy_s(&key_temp, sizeof(key_temp), key, 32);
+    if (EFI_ERROR(ret))
+        return -1;
     rc = rpmb_sim_write(key_temp, 32, KEY_ADDR);
     if (rc < 0) {
         trusty_error("program_key failed at set key.\n");
@@ -259,6 +262,7 @@ out:
 static int rpmb_write(const struct rpmb_packet *in_frame, uint32_t in_cnt,
                       struct rpmb_packet *out_frame, uint32_t out_cnt)
 {
+    EFI_STATUS status;
     int ret = 0;
     int err = RPMB_RES_WRITE_FAILURE;
     uint32_t i;
@@ -331,8 +335,14 @@ static int rpmb_write(const struct rpmb_packet *in_frame, uint32_t in_cnt,
         goto out;
     }
 
-    for (i = 0; i < in_cnt; i++)
-        memcpy(data + i * 256, in_frame[i].data, 256);
+    for (i = 0; i < in_cnt; i++) {
+        status = memcpy_s(data + i * 256, sizeof(data), in_frame[i].data, 256);
+        if (EFI_ERROR(status)) {
+            ret = -1;
+            err = RPMB_RES_GENERAL_FAILURE;
+            goto out;
+        }
+    }
 
     if (rpmb_sim_write(data, sizeof(data), 256 * addr) < 0) {
         trusty_error("rpmb_write rpmb_sim_write failed.\n");
@@ -365,6 +375,7 @@ out:
 static int rpmb_read(const struct rpmb_packet *in_frame, uint32_t in_cnt,
                      struct rpmb_packet *out_frame, uint32_t out_cnt)
 {
+    EFI_STATUS status;
     int ret = 0;
     uint32_t i;
     int err = RPMB_RES_READ_FAILURE;
@@ -405,27 +416,42 @@ out:
     if (out_frame) {
         memset(out_frame, 0, out_cnt*sizeof(*out_frame));
         for (i = 0; i < out_cnt; i++) {
-            memcpy(out_frame[i].nonce, in_frame[0].nonce,
-                   sizeof(in_frame[0].nonce));
+            status = memcpy_s(out_frame[i].nonce, sizeof(out_frame[0].nonce),
+                              in_frame[0].nonce, sizeof(in_frame[0].nonce));
+            if (EFI_ERROR(status)) {
+                ret = -1;
+                goto error;
+            }
             out_frame[i].req_resp = swap16(RPMB_RESP_DATA_READ);
             out_frame[i].block_count = swap16(out_cnt);
             out_frame[i].address = in_frame[0].address;
-            memcpy(out_frame[i].data, data+256*i, 256);
+            status = memcpy_s(out_frame[i].data, sizeof(out_frame[0].data), data+256*i, 256);
+            if (EFI_ERROR(status)) {
+                ret = -1;
+                goto error;
+            }
         }
         if (get_key(key))
             trusty_error("rpmb_read get_key failed.\n");
 
         out_frame[out_cnt - 1].result = swap16(err);
         rpmb_mac(key, out_frame, out_cnt, mac);
-        memcpy(out_frame[out_cnt - 1].key_mac, mac, sizeof(mac));
+        status = memcpy_s(out_frame[out_cnt - 1].key_mac, sizeof(out_frame[0].key_mac), mac,
+                          sizeof(mac));
+        if (EFI_ERROR(status)) {
+            ret = -1;
+            goto error;
+        }
     }
 
+error:
     return ret;
 }
 
 static int rpmb_get_counter(const struct rpmb_packet *in_frame, uint32_t in_cnt,
                             struct rpmb_packet *out_frame, uint32_t out_cnt)
 {
+    EFI_STATUS status;
     int ret = 0;
     int err = RPMB_RES_COUNTER_FAILURE;
     uint8_t key[32];
@@ -455,7 +481,11 @@ out:
         memset(out_frame, 0, sizeof(*out_frame)*out_cnt);
         out_frame->result = swap16(err);
         out_frame->req_resp = swap16(RPMB_RESP_GET_COUNTER);
-        memcpy(out_frame->nonce, in_frame[0].nonce, sizeof(in_frame[0].nonce));
+        status = memcpy_s(out_frame->nonce, sizeof(out_frame[0].nonce), in_frame[0].nonce, sizeof(in_frame[0].nonce));
+        if (EFI_ERROR(status)) {
+            err = RPMB_RES_GENERAL_FAILURE;
+            ret = -1;
+        }
 
         if (err == RPMB_RES_OK) {
             out_frame->write_counter = swap32(counter);
@@ -477,12 +507,16 @@ int rpmb_sim_operations(const void *rel_write_data, size_t rel_write_size,
                         const void *write_data, size_t write_size,
                         void *read_buf, size_t read_size)
 {
+    EFI_STATUS status;
     int ret = -1;
 
     if (rel_write_size) {
         int nframe = rel_write_size/RPMB_FRAME_SIZE;
         struct rpmb_packet rel_write_frame[nframe];
-        memcpy(rel_write_frame, rel_write_data, sizeof(rel_write_frame));
+        status = memcpy_s(rel_write_frame, sizeof(rel_write_frame), rel_write_data,
+                          sizeof(rel_write_frame));
+        if (EFI_ERROR(status))
+            return -1;
         if (rel_write_frame[0].req_resp == swap16(RPMB_REQ_DATA_WRITE)) {
             if (write_size/RPMB_FRAME_SIZE &&
                    ((struct rpmb_packet *)write_data)->req_resp
@@ -505,7 +539,9 @@ int rpmb_sim_operations(const void *rel_write_data, size_t rel_write_size,
         }
     } else if (write_size) {
         struct rpmb_packet write_frame[write_size/RPMB_FRAME_SIZE];
-        memcpy(write_frame, write_data, sizeof(write_frame));
+        status = memcpy_s(write_frame, sizeof(write_frame), write_data, sizeof(write_frame));
+        if (EFI_ERROR(status))
+            return -1;
         if (write_frame[0].req_resp == swap16(RPMB_REQ_DATA_READ))
             ret = rpmb_read(write_frame, 1,
                             read_buf, read_size/RPMB_FRAME_SIZE);

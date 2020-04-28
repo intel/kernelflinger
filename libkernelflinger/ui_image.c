@@ -87,7 +87,9 @@ EFI_STATUS ui_image_draw_scale(ui_image_t *image, UINTN x, UINTN y, UINTN width,
 	if (new_width == image->width && new_height == image->height)
 		return ui_image_draw(image, x, y);
 
-	memcpy(&to_draw, image, sizeof(to_draw));
+	ret = memcpy_s(&to_draw, sizeof(to_draw), image, sizeof(to_draw));
+	if (EFI_ERROR(ret))
+		goto out;
 	to_draw.blt = AllocatePool(ui_get_blt_size(new_width, new_height));
 	if (!to_draw.blt) {
 		ret = EFI_OUT_OF_RESOURCES;

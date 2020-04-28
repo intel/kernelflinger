@@ -84,10 +84,14 @@ EFI_STATUS log_flush_to_var(BOOLEAN nonvol)
 		}
 
 		if (pos < last_pos) {
-			memcpy(buf, log_buf + pos, last_pos - pos);
+			ret = memcpy_s(buf, size, log_buf + pos, last_pos - pos);
+			if (EFI_ERROR(ret))
+				goto out;
 			cur += last_pos - pos;
 		}
-		memcpy(cur, log_buf, pos);
+		ret = memcpy_s(cur, size, log_buf, pos);
+		if (EFI_ERROR(ret))
+			goto out;
 	} else {
 		size = pos;
 		buf = log_buf;
@@ -105,6 +109,8 @@ out:
 
 static void log_append_to_buffer(CHAR8 *msg, UINTN length)
 {
+	EFI_STATUS ret;
+
 	if (length > LOG_BUF_SIZE)
 		return;
 
@@ -113,7 +119,10 @@ static void log_append_to_buffer(CHAR8 *msg, UINTN length)
 		pos = 0;
 	}
 
-	memcpy(log_buf + pos, msg, length);
+	ret = memcpy_s(log_buf + pos, sizeof(log_buf), msg, length);
+	if (EFI_ERROR(ret))
+		return;
+
 	pos += length;
 }
 

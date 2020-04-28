@@ -76,6 +76,7 @@ static size_t iovec_size(const struct trusty_ipc_iovec *iovs, size_t iovs_cnt)
 static size_t iovec_to_buf(void *buf, size_t buf_len,
                            const struct trusty_ipc_iovec *iovs, size_t iovs_cnt)
 {
+    EFI_STATUS ret;
     size_t i;
     size_t buf_pos = 0;
 
@@ -90,7 +91,11 @@ static size_t iovec_to_buf(void *buf, size_t buf_len,
         if (to_copy > buf_len)
             to_copy = buf_len;
 
-        memcpy((uint8_t *)buf + buf_pos, iovs[i].base, to_copy);
+        ret = memcpy_s((uint8_t *)buf + buf_pos, buf_len, iovs[i].base, to_copy);
+        if (EFI_ERROR(ret)) {
+            buf_pos = 0;
+            break;
+        }
 
         buf_pos += to_copy;
         buf_len -= to_copy;
@@ -105,6 +110,7 @@ static size_t iovec_to_buf(void *buf, size_t buf_len,
 static size_t buf_to_iovec(const struct trusty_ipc_iovec *iovs, size_t iovs_cnt,
                            const void *buf, size_t buf_len)
 {
+    EFI_STATUS ret;
     size_t i;
     size_t copied = 0;
     const uint8_t *buf_ptr = buf;
@@ -124,7 +130,11 @@ static size_t buf_to_iovec(const struct trusty_ipc_iovec *iovs, size_t iovs_cnt,
         if (!to_copy)
             continue;
 
-        memcpy(iovs[i].base, buf_ptr, to_copy);
+        ret = memcpy_s(iovs[i].base, iovs[i].len, buf_ptr, to_copy);
+        if (EFI_ERROR(ret)) {
+            copied = 0;
+            break;
+        }
 
         copied  += to_copy;
         buf_ptr += to_copy;
@@ -228,6 +238,7 @@ void trusty_ipc_dev_shutdown(struct trusty_ipc_dev *dev)
 int trusty_ipc_dev_connect(struct trusty_ipc_dev *dev, const char *port,
                            uint64_t cookie)
 {
+    EFI_STATUS ret;
     int rc;
     size_t port_len;
     volatile struct trusty_ipc_cmd_hdr *cmd;
@@ -255,7 +266,10 @@ int trusty_ipc_dev_connect(struct trusty_ipc_dev *dev, const char *port,
     req = (struct trusty_ipc_connect_req *)cmd->payload;
     memset((void *)req, 0, sizeof(*req));
     req->cookie = cookie;
-    strcpy((CHAR8 *)req->name, (CHAR8 *)port);
+    ret = strcpy_s((CHAR8 *)req->name, port_len, (CHAR8 *)port);
+    if (EFI_ERROR(ret))
+        return TRUSTY_ERR_GENERIC;
+
     cmd->payload_len = sizeof(*req) + port_len;
 
     /* call secure os */
@@ -315,6 +329,7 @@ int trusty_ipc_dev_close(struct trusty_ipc_dev *dev, handle_t handle)
 int trusty_ipc_dev_get_event(struct trusty_ipc_dev *dev, handle_t chan,
                              struct trusty_ipc_event *event)
 {
+    EFI_STATUS ret;
     int rc;
     volatile struct trusty_ipc_cmd_hdr *cmd;
 
@@ -352,7 +367,10 @@ int trusty_ipc_dev_get_event(struct trusty_ipc_dev *dev, handle_t chan,
     }
 
     /* copy out event */
-    memcpy(event, (const void *)cmd->payload, sizeof(*event));
+    ret = memcpy_s(event, sizeof(*event), (const void *)cmd->payload, sizeof(*event));
+    if (EFI_ERROR(ret))
+        return TRUSTY_ERR_GENERIC;
+
     return TRUSTY_ERR_NONE;
 }
 

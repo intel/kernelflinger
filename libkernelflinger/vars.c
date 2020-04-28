@@ -534,9 +534,7 @@ EFI_STATUS get_watchdog_status(UINT8 *counter, EFI_TIME *time)
 	if (size != sizeof(*time))
 		return EFI_COMPROMISED_DATA;
 
-	memcpy(time, tmp, size);
-
-	return EFI_SUCCESS;
+	return memcpy_s(time, sizeof(*time), tmp, size);
 }
 
 EFI_STATUS reset_watchdog_status(VOID)
@@ -628,10 +626,15 @@ static void CDD_clean_string(char *buf)
 
 #define SMBIOS_TO_BUFFER(buffer, type, field) do { \
 	if (!buffer[0]) { \
+		EFI_STATUS ret; \
 		UINTN bufsz = sizeof(buffer); \
 		char *dmidata = SMBIOS_GET_STRING(type, field); \
 		if (dmidata && dmidata != SMBIOS_UNDEFINED) { \
-			strncpy((CHAR8 *)buffer, (CHAR8 *)dmidata, bufsz); \
+			ret = strncpy_s((CHAR8 *)buffer, bufsz, (CHAR8 *)dmidata, bufsz); \
+			if (EFI_ERROR(ret)) { \
+				buffer[0] = 0; \
+				break; \
+			} \
 			buffer[bufsz - 1] = '\0'; \
 		} \
 	} \
@@ -675,7 +678,7 @@ static void chop_brand_tail(char *brand)
 		int len = strlen((CHAR8*)b);
 
 		if (strncasecmp(brand, b, len) == 0) {
-			strcpy((CHAR8*)brand, (CHAR8*)b);
+			strcpy_s((CHAR8*)brand, len, (CHAR8*)b);
 			return;
 		}
 	}
@@ -795,7 +798,9 @@ char *get_serialno_var()
 char *get_serial_number(void)
 {
 	static char bios_serialno[SERIALNO_MAX_SIZE + 1];
-	static char serialno[SERIALNO_MAX_SIZE + 1];
+	static char serialno[SERIALNO_MAX_SIZE + 1] =
+				{'0', '0', 'b', 'a', 'd', 'b', 'i', 'o', 's',
+				 '0', '0', 'b', 'a', 'd', 'b', 'i', 'o', 's', '0', '0'};
 	char *pos;
 	unsigned int zeroes = 0;
 	UINTN len;
@@ -858,14 +863,14 @@ bad:
 	pos = get_serialno_var();
 	if (pos == NULL) {
 		error(L"SERIAL number is NULL\n");
-		strncpy((CHAR8 *)serialno, (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
+		strncpy_s((CHAR8 *)serialno, sizeof(serialno), (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
 	} else {
 		error(L"Valid serial number read from EFI vars\n");
-		strncpy((CHAR8 *)serialno, (CHAR8 *)pos, SERIALNO_MAX_SIZE);
+		strncpy_s((CHAR8 *)serialno, sizeof(serialno), (CHAR8 *)pos, SERIALNO_MAX_SIZE);
 		FreePool(pos);
 	}
 #else
-	strncpy((CHAR8 *)serialno, (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
+	strncpy_s((CHAR8 *)serialno, sizeof(serialno), (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
 #endif
 	return serialno;
 }
@@ -874,6 +879,7 @@ CHAR16 *get_reboot_reason()
 {
 	static CHAR16 reboot_reason[REBOOT_REASON_MAX];
 	CHAR16 *rr;
+	EFI_STATUS ret;
 
 	if (reboot_reason[0])
 		return reboot_reason;
@@ -885,8 +891,10 @@ CHAR16 *get_reboot_reason()
 	if (StrLen(rr) >= REBOOT_REASON_MAX)
 		error(L"Reboot reason string is too long, truncating");
 
-	StrNCpy(reboot_reason, rr, REBOOT_REASON_MAX);
+	ret = strncpy16_s(reboot_reason, sizeof(reboot_reason) / sizeof(CHAR16), rr, REBOOT_REASON_MAX);
 	FreePool(rr);
+	if (EFI_ERROR(ret))
+		return NULL;
 
 	return reboot_reason;
 }

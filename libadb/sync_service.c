@@ -198,9 +198,13 @@ static EFI_STATUS sync_service_okay(asock_t s)
 
 static EFI_STATUS sync_service_reader_open(sync_ctx_t *ctx, unsigned char *data, UINT32 length)
 {
+	EFI_STATUS ret;
 	char path[length + 1];
 
-	memcpy(path, data, length);
+	ret = memcpy_s(path, sizeof(path), data, length);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	path[length] = '\0';
 
 	return reader_open(&ctx->reader_ctx, path);

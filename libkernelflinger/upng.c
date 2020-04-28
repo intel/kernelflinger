@@ -1223,7 +1223,11 @@ static EFI_STATUS upng_decode(upng_t* upng)
 
 		/* Parse chunks */
 		if (upng_chunk_type(chunk) == CHUNK_IDAT) {
-			memcpy(compressed + compressed_index, data, length);
+			error = memcpy_s(compressed + compressed_index, compressed_size, data, length);
+			if (EFI_ERROR(error)) {
+				FreePool(compressed);
+			    return error;
+			}
 			compressed_index += length;
 		} else if (upng_chunk_type(chunk) == CHUNK_IEND) {
 			break;

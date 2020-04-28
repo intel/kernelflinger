@@ -315,7 +315,11 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
         debug(L"TOS Loadtime memory address = 0x%x", load_base);
 
         /* Relocate to Loadtime region for TOS header + TOS */
-        memcpy((VOID *)(UINTN)load_base, (VOID *)tos_header, boot_image_header->kernel_size);
+        ret = memcpy_s((VOID *)(UINTN)load_base, load_size, (VOID *)tos_header,
+                       boot_image_header->kernel_size);
+        if (EFI_ERROR(ret)) {
+                goto cleanup;
+        }
 
         /* Get EFI memory map */
         memory_map = (CHAR8 *)LibMemoryMap(&nr_entries, &map_key, &desc_size, &desc_ver);

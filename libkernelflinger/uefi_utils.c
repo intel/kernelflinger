@@ -368,7 +368,9 @@ EFI_STATUS uefi_rename_file(EFI_FILE_IO_INTERFACE *io, CHAR16 *oldname, CHAR16 *
 		goto out;
 
 	// Set the new file name
-	StrNCpy(info->FileName, newname, FILENAME_MAX_LENGTH / sizeof(CHAR16));
+	ret = strncpy16_s(info->FileName, FILENAME_MAX_LENGTH / sizeof(CHAR16), newname, FILENAME_MAX_LENGTH / sizeof(CHAR16));
+	if (EFI_ERROR(ret))
+		goto out;
 	info->Size = SIZE_OF_EFI_FILE_INFO + StrLen(info->FileName) * 2 + 2;
 
 	ret = uefi_call_wrapper(file->SetInfo, 4, file, &GenericFileInfo, info->Size, info);

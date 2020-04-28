@@ -378,18 +378,22 @@ static const CHAR16 ANDROID_PREFIX[] = L"android_";
 
 static CHAR16 *make_android_label(const CHAR16 *label)
 {
+	EFI_STATUS ret;
 	static CHAR16 android_label[GPT_NAME_LEN];
 	static CHAR16 *suffix = &android_label[ARRAY_SIZE(ANDROID_PREFIX) - 1];
 	UINTN label_size = StrLen(label) * sizeof(CHAR16);
 
-	if (!*android_label)
-		memcpy(android_label, ANDROID_PREFIX, sizeof(ANDROID_PREFIX));
+	if (!*android_label) {
+		ret = memcpy_s(android_label, sizeof(android_label), ANDROID_PREFIX, sizeof(ANDROID_PREFIX));
+		if (EFI_ERROR(ret))
+			return NULL;
+	}
 
 	if (label_size + sizeof(ANDROID_PREFIX) > sizeof(android_label))
 		return NULL;
 
-	memcpy(suffix, label, label_size + sizeof(CHAR16));
-	return android_label;
+	ret = memcpy_s(suffix, label_size + sizeof(CHAR16), label, label_size + sizeof(CHAR16));
+	return (ret == EFI_SUCCESS) ? (android_label) : (NULL);
 }
 
 static struct gpt_partition *gpt_find_partition(const CHAR16 *label)
@@ -891,9 +895,7 @@ EFI_STATUS gpt_get_header(struct gpt_header **header, UINTN *size, logical_unit_
 	if (!*header)
 		return EFI_OUT_OF_RESOURCES;
 
-	memcpy(*header, &sdisk.gpt_hd, *size);
-
-	return EFI_SUCCESS;
+	return memcpy_s(*header, *size, &sdisk.gpt_hd, *size);
 }
 
 EFI_STATUS gpt_get_partitions(struct gpt_partition **partitions, UINTN *size, logical_unit_t log_unit)
@@ -912,7 +914,5 @@ EFI_STATUS gpt_get_partitions(struct gpt_partition **partitions, UINTN *size, lo
 	if (!*partitions)
 		return EFI_OUT_OF_RESOURCES;
 
-	memcpy(*partitions, sdisk.partitions, *size);
-
-	return EFI_SUCCESS;
+	return memcpy_s(*partitions, *size, sdisk.partitions, *size);
 }

@@ -81,6 +81,7 @@ static void free_load_options()
 
 static EFI_STATUS add_load_option(CHAR8 *description, CHAR8 *path, CHAR8 *opt_params)
 {
+	EFI_STATUS ret;
 	load_option_t *new_load_options;
 	load_option_t *current;
 
@@ -89,8 +90,14 @@ static EFI_STATUS add_load_option(CHAR8 *description, CHAR8 *path, CHAR8 *opt_pa
 		free_load_options();
 		return EFI_OUT_OF_RESOURCES;
 	}
-	if (load_option_nb != 0)
-		memcpy(new_load_options, load_options, load_option_nb * sizeof(*load_options));
+	if (load_option_nb != 0) {
+		ret = memcpy_s(new_load_options, sizeof(*new_load_options), load_options,
+					   load_option_nb * sizeof(*load_options));
+		if (EFI_ERROR(ret)) {
+			free_load_options();
+			return ret;
+		}
+	}
 	FreePool(load_options);
 	load_options = new_load_options;
 	current = &load_options[load_option_nb];

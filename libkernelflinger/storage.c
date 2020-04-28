@@ -190,7 +190,12 @@ EFI_STATUS identify_boot_device(enum storage_type filter)
 			continue;
 
 		if (!new_boot_device.Header.Type || new_boot_device_type >= type) {
-				memcpy(&new_boot_device, pci, sizeof(new_boot_device));
+				ret = memcpy_s(&new_boot_device, sizeof(new_boot_device), pci,
+							   sizeof(new_boot_device));
+				if (EFI_ERROR(ret)) {
+						FreePool(handles);
+						return ret;
+				}
 				new_boot_device_type = type;
 				new_storage = storage;
 				new_boot_device_handle = handles[i];
@@ -217,7 +222,9 @@ EFI_STATUS identify_boot_device(enum storage_type filter)
 	cur_storage = new_storage;
 	boot_device_type = new_boot_device_type;
 	boot_device_handle = new_boot_device_handle;
-	memcpy(&boot_device, &new_boot_device, sizeof(new_boot_device));
+	ret = memcpy_s(&boot_device, sizeof(boot_device), &new_boot_device, sizeof(new_boot_device));
+	if (EFI_ERROR(ret))
+		return ret;
 
 	debug(L"%s storage selected", cur_storage->name);
 	return EFI_SUCCESS;
@@ -413,7 +420,10 @@ EFI_STATUS storage_set_boot_device(EFI_HANDLE device)
 	FreePool(dps);
 
 	initialized = TRUE;
-	memcpy(&boot_device, pci, sizeof(boot_device));
+	ret = memcpy_s(&boot_device, sizeof(boot_device), pci, sizeof(boot_device));
+	if (EFI_ERROR(ret))
+		return ret;
+
 	boot_device_handle = device;
 	return EFI_SUCCESS;
 }

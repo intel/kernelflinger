@@ -141,10 +141,10 @@ static EFI_STATUS init_trusty_startup_params(trusty_startup_params_t *param, UIN
 
 	/* Currently valid size of RPMB is 32byte and pass one rpmb key to trusty */
 	if ((number_derived_key > 0) && out_key)
-		memcpy(param->rpmb_key, out_key, RPMB_KEY_SIZE);
+		ret = memcpy_s(param->rpmb_key, sizeof(param->rpmb_key), out_key, RPMB_KEY_SIZE);
 #endif
 
-	return EFI_SUCCESS;
+	return ret;
 }
 
 #ifdef __LP64__

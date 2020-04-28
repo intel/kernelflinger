@@ -127,7 +127,10 @@ static EFI_STATUS flash_raw_data(void *data, unsigned size)
 			return ret;
 	}
 
-	memcpy(buffer + cur_size, data, size);
+	ret = memcpy_s(buffer + cur_size, size, data, size);
+	if (EFI_ERROR(ret))
+		return ret;
+
 	cur_size += size;
 
 	return EFI_SUCCESS;

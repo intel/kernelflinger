@@ -78,7 +78,9 @@ void trusty_printf(const char *format, ...)
 
 void *trusty_memcpy(void *dest, void *src, size_t n)
 {
-    return memcpy(dest, src, n);
+    EFI_STATUS ret;
+    ret = memcpy_s(dest, n, src, n);
+    return (ret == EFI_SUCCESS) ? (dest) : (NULL);
 }
 
 void *trusty_memset(void *dest, const int c, size_t n)
@@ -88,7 +90,9 @@ void *trusty_memset(void *dest, const int c, size_t n)
 
 char *trusty_strcpy(char *dest, const char *src)
 {
-    return (char *)strcpy((CHAR8 *)dest, (CHAR8 *)src);
+    EFI_STATUS ret;
+    ret = strcpy_s(dest, strlen(src), src);
+    return (ret == EFI_SUCCESS) ? (dest) : (NULL);
 }
 
 size_t trusty_strlen(const char *str)
