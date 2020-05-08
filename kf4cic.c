@@ -211,6 +211,41 @@ static EFI_STATUS load_and_start_tos(void)
 
 	return ret;
 }
+
+static EFI_STATUS update_rollback_indexes()
+{
+	EFI_STATUS ret;
+	AvbOps *ops;
+	AvbSlotVerifyResult verify_result;
+	AvbSlotVerifyData *slot_data = NULL;
+	UINT8 boot_state = BOOT_STATE_GREEN;
+	const char *requested_partitions[] = {"tos", NULL};
+
+	ops = avb_init();
+	if (!ops) {
+		error(L"Failed to init avb");
+		return EFI_OUT_OF_RESOURCES;
+	}
+
+	verify_result = avb_slot_verify(ops,
+					requested_partitions,
+					"",
+					AVB_SLOT_VERIFY_FLAGS_NONE,
+					AVB_HASHTREE_ERROR_MODE_RESTART,
+					&slot_data);
+	ret = get_avb_result(slot_data,
+				FALSE,
+				verify_result,
+				&boot_state);
+	if (EFI_ERROR(ret)) {
+		error(L"Failed to get avb result for tos");
+		return ret;
+	}
+
+	avb_update_stored_rollback_indexes_for_slot(ops, slot_data);
+
+	return ret;
+}
 #endif
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
@@ -278,6 +313,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	ret = load_and_start_tos();
 	if (EFI_ERROR(ret))
 		return ret;
+
+	if (boot_state == BOOT_STATE_GREEN) {
+		ret = update_rollback_indexes();
+		if (EFI_ERROR(ret)) {
+			error(L"Failed to update rollback indexes.\n");
+			return ret;
+		}
+	}
 #endif
 
 #ifdef USE_TPM
