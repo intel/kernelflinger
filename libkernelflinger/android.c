@@ -1176,7 +1176,7 @@ static EFI_STATUS setup_command_line(
                 char *vb_cmdline;
                 vb_cmdline = get_vb_cmdline(vb_data);
                 cmdline[cmdlen] = ' ';
-                ret = memcpy_s(cmdline + cmdlen + 1, vb_cmdlen, vb_cmdline, vb_cmdlen);
+                ret = memcpy_s(cmdline + cmdlen + 1, cmdsize, vb_cmdline, vb_cmdlen);
                 if (EFI_ERROR(ret)) {
                         free_pages(cmdline_addr, EFI_SIZE_TO_PAGES(cmdsize));
                         goto out;

@@ -163,6 +163,8 @@ CHAR8 *strcpy(CHAR8 *dest, const CHAR8 *src)
 
 EFI_STATUS strcpy_s(char *restrict dest, size_t destsz, const char *restrict src)
 {
+        unsigned int i;
+
         if (dest == src) {
                 debug(L"<strcpy_s dest == src");
                 return EFI_SUCCESS;
@@ -178,13 +180,6 @@ EFI_STATUS strcpy_s(char *restrict dest, size_t destsz, const char *restrict src
                 return EFI_BAD_BUFFER_SIZE;
         }
 
-        if (src == NULL) {
-                error(L"<strcpy_s src == NULL");
-                while (destsz) { *dest = '\0'; destsz--; dest++; }
-                return EFI_INVALID_PARAMETER;
-        }
-
-        unsigned int i;
         for (i = 0; src[i] != '\0'; i++)
                 dest[i] = src[i];
         dest[i] = '\0';
@@ -194,6 +189,8 @@ EFI_STATUS strcpy_s(char *restrict dest, size_t destsz, const char *restrict src
 
 EFI_STATUS strcpy16_s(CHAR16 *restrict dest, size_t destsz, const CHAR16 *restrict src)
 {
+        unsigned int i;
+
         if (dest == src) {
                 debug(L"<strcpy_s dest == src");
                 return EFI_SUCCESS;
@@ -209,13 +206,6 @@ EFI_STATUS strcpy16_s(CHAR16 *restrict dest, size_t destsz, const CHAR16 *restri
                 return EFI_BAD_BUFFER_SIZE;
         }
 
-        if (src == NULL) {
-                error(L"<strcpy_s src == NULL");
-                while (destsz) { *dest = '\0'; destsz--; dest++; }
-                return EFI_INVALID_PARAMETER;
-        }
-
-        unsigned int i;
         for (i = 0; src[i] != '\0'; i++)
                 dest[i] = src[i];
         dest[i] = '\0';

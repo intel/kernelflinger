@@ -392,7 +392,7 @@ static EFI_STATUS flash_new_bootimage(VOID *kernel, UINTN kernel_size,
 
 	if (bootimage->header_version >= 1) {
 		ret = memcpy_s(new_bootimage + new_bootimage->recovery_acpio_offset,
-					   bootimage->recovery_acpio_size,
+					   new_bootimage->recovery_acpio_size,
 					   bootimage + bootimage->recovery_acpio_offset,
 					   bootimage->recovery_acpio_size);
 		if (EFI_ERROR(ret))
@@ -401,7 +401,7 @@ static EFI_STATUS flash_new_bootimage(VOID *kernel, UINTN kernel_size,
 
 	if (bootimage->header_version == 2) {
 		ret = memcpy_s(new_bootimage + new_bootimage->acpi_addr,
-					   bootimage->acpi_size,
+					   new_bootimage->acpi_size,
 					   bootimage + bootimage->acpi_addr,
 					   bootimage->acpi_size);
 		if (EFI_ERROR(ret))

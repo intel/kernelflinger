@@ -720,16 +720,14 @@ static CHAR16 *get_format_image_filename(CHAR8 *label)
 		filename16 = NULL;
 		goto out;
 	}
-	ret = memcpy_s(filename + label_length, SIZE_OF_FILENAME, ".img", 4);
+	ret = memcpy_s(filename + label_length, SIZE_OF_FILENAME - label_length, ".img", 4);
 	if (EFI_ERROR(ret)) {
 		filename16 = NULL;
 		goto out;
 	}
 	filename16 = stra_to_str(filename);
-	if (!filename16) {
+	if (!filename16)
 		fastboot_fail("Unable to allocate CHAR16 filename buffer");
-		filename16 = NULL;
-	}
 
 out:
 	FreePool(filename);
