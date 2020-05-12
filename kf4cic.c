@@ -216,9 +216,7 @@ static EFI_STATUS load_and_start_tos(void)
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 {
 	EFI_STATUS ret;
-#ifdef RPMB_STORAGE
 	UINT32 boot_state;
-#endif
 
 	InitializeLib(image, _table);
 
@@ -230,6 +228,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 			error(L"Failed to set device state");
 			return ret;
 		}
+	}
+
+	if (is_platform_secure_boot_enabled())
+		boot_state = BOOT_STATE_GREEN;
+	else {
+		boot_state = BOOT_STATE_YELLOW;
+		show_disable_secure_boot_warnning();
 	}
 
 #ifdef USE_TPM
@@ -249,12 +254,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		return ret;
 	}
 
-	if (is_platform_secure_boot_enabled())
-		boot_state = BOOT_STATE_GREEN;
-	else {
-		boot_state = BOOT_STATE_YELLOW;
-		show_disable_secure_boot_warnning();
-	}
 	init_rot_data(boot_state);
 
 	debug(L"teedata region init...\n");
