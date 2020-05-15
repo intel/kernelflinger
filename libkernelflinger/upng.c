@@ -1165,7 +1165,7 @@ static EFI_STATUS upng_decode(upng_t* upng)
 
 		/* Make sure chunk header is not larger than the total
 		 * compressed */
-		if ((unsigned long)(chunk - upng->source.buffer + 12) >
+		if ((unsigned long)(chunk - (unsigned long)upng->source.buffer + 12) >
 		    upng->source.size) {
 			SET_ERROR(upng, EFI_INVALID_PARAMETER);
 			return upng->error;

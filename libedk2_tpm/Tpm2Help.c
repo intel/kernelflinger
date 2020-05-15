@@ -330,5 +330,5 @@ CopyAuthSessionCommand (
     Buffer += sizeof(UINT16);
   }
 
-  return (UINT32)(UINTN)(Buffer - (UINT8 *)AuthSessionOut);
+  return (UINT32)(Buffer - (UINT8 *)AuthSessionOut);
 }

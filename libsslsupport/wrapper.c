@@ -547,9 +547,9 @@ time_t time(time_t *timer)
 	*timer = *timer +
 		(time_t)((Time.TimeZone != EFI_UNSPECIFIED_TIMEZONE) ? (Time.TimeZone * 60) : 0) +
 		(time_t)(CumulativeDays[isleap(Time.Year)][Time.Month] * SECSPERDAY) +
-		(time_t)(((Time.Day > 0) ? Time.Day - 1 : 0) * SECSPERDAY) +
-		(time_t)(Time.Hour * SECSPERHOUR) +
-		(time_t)(Time.Minute * 60) +
+		(time_t)(((Time.Day > 0) ? (time_t)Time.Day - 1 : 0) * SECSPERDAY) +
+		(time_t)((time_t)Time.Hour * SECSPERHOUR) +
+		(time_t)((time_t)Time.Minute * 60) +
 		(time_t)Time.Second;
 
 	return *timer;

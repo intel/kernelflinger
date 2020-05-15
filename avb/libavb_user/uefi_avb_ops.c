@@ -41,7 +41,7 @@
 extern char _binary_avb_pk_start;
 extern char _binary_avb_pk_end;
 #define avb_pk (&_binary_avb_pk_start)
-#define avb_pk_size (&_binary_avb_pk_end - &_binary_avb_pk_start)
+#define avb_pk_size ((size_t)&_binary_avb_pk_end - (size_t)&_binary_avb_pk_start)
 
 static AvbIOResult read_from_partition(__attribute__((unused)) AvbOps* ops,
                                        const char* partition_name,
