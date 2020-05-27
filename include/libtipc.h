@@ -34,7 +34,4 @@ int trusty_ipc_init(void);
  */
 void trusty_ipc_shutdown(void);
 
-int is_keybox_retrieved(void);
-int set_keybox_provision_magic_data(void);
-
 #endif /* TRUSTY_LIBTIPC_H_ */

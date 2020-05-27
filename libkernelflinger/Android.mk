@@ -94,10 +94,6 @@ ifeq ($(KERNELFLINGER_DISABLE_DEBUG_PRINT),true)
     LOCAL_CFLAGS += -D__DISABLE_DEBUG_PRINT
 endif
 
-ifneq ($(KERNELFLINGER_FIXED_RPMB_KEY),)
-    LOCAL_CFLAGS += -DFIXED_RPMB_KEY=$(KERNELFLINGER_FIXED_RPMB_KEY)
-endif
-
 LOCAL_SRC_FILES := \
 	android.c \
 	efilinux.c \
@@ -125,12 +121,6 @@ LOCAL_SRC_FILES := \
 	watchdog.c \
 	life_cycle.c \
 	qsort.c \
-	rpmb/rpmb.c \
-	rpmb/rpmb_emmc.c \
-	rpmb/rpmb_ufs.c \
-	rpmb/rpmb_virtual.c \
-	rpmb/rpmb_nvme.c \
-	rpmb/rpmb_storage_common.c \
 	timer.c \
 	nvme.c \
 	virtual_media.c \
@@ -233,14 +223,6 @@ endif
 ifneq ($(TARGET_BOOT_SIGNER),)
     LOCAL_SRC_FILES += $(TARGET_BOOT_SIGNER)_sig.c
 endif
-
-ifeq ($(KERNELFLINGER_USE_RPMB),true)
-    LOCAL_SRC_FILES += rpmb/rpmb_storage.c
-else  # KERNELFLINGER_USE_RPMB == false
-ifeq ($(KERNELFLINGER_USE_RPMB_SIMULATE),true)
-    LOCAL_SRC_FILES += rpmb/rpmb_storage.c
-endif
-endif  # KERNELFLINGER_USE_RPMB
 
 ifeq ($(BOARD_FIRSTSTAGE_MOUNT_ENABLE),true)
     LOCAL_CFLAGS += -DUSE_FIRSTSTAGE_MOUNT

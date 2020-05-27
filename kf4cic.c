@@ -36,14 +36,8 @@
 #include "log.h"
 #include "protocol.h"
 #include "uefi_utils.h"
-#include "vbmeta_ias.h"
 #include "lib.h"
 #include "ux.h"
-
-#ifdef RPMB_STORAGE
-#include "rpmb.h"
-#include "rpmb_storage.h"
-#endif
 
 #include "security.h"
 #include "security_interface.h"
@@ -289,7 +283,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	}
 #endif
 
-#ifdef RPMB_STORAGE
 	ret = set_device_security_info(NULL);
 	if (EFI_ERROR(ret)) {
 		error(L"Failed to init security info");
@@ -297,22 +290,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	}
 
 	init_rot_data(boot_state);
-
-	debug(L"teedata region init...\n");
-	ret = rpmb_storage_init();
-	if (EFI_ERROR(ret)) {
-		error(L"Failed to init teedata region");
-		return ret;
-	}
-
-	debug(L"teedata region init ret = %X\n", ret);
-
-	ret = rpmb_key_init();
-	if (EFI_ERROR(ret)) {
-		error(L"teedata region init failure for osloader.\n");
-		return ret;
-	}
-#endif
 
 #ifdef USE_TRUSTY
 	debug(L"TRUSTY enabled...\n");

@@ -24,7 +24,6 @@
 
 #include <trusty/keymaster.h>
 #include <trusty/keymaster_serializable.h>
-#include <trusty/rpmb.h>
 #include <trusty/trusty_ipc.h>
 #include <trusty/util.h>
 #include "security.h"
@@ -182,12 +181,12 @@ static int km_read_data_response(uint32_t cmd, int32_t *error,
 }
 
 /**
- * Convenience method to send a request to the secure side, handle rpmb
- * operations, and receive the response. If |resp_data| is not NULL, the
+ * Convenience method to send a request to the secure side
+ * and receive the response. If |resp_data| is not NULL, the
  * caller expects an additional data buffer to be returned from the secure
  * side.
  */
-static int km_do_tipc(uint32_t cmd, bool handle_rpmb, void* req,
+static int km_do_tipc(uint32_t cmd, void* req,
                       uint32_t req_len, void* resp_data,
                       uint32_t* resp_data_len)
 {
@@ -198,15 +197,6 @@ static int km_do_tipc(uint32_t cmd, bool handle_rpmb, void* req,
     if (rc < 0) {
         trusty_error("%s: failed (%d) to send km request\n", __func__, rc);
         return rc;
-    }
-
-    if (handle_rpmb) {
-        /* handle any incoming RPMB requests */
-        rc = rpmb_storage_proxy_poll();
-        if (rc < 0) {
-            trusty_error("%s: failed (%d) to get RPMB requests\n", __func__, rc);
-            return rc;
-        }
     }
 
     if (!resp_data) {
@@ -321,41 +311,6 @@ int km_tipc_init(struct trusty_ipc_dev *dev)
         return TRUSTY_ERR_GENERIC;
     }
 
-#if defined(RPMB_STORAGE)
-    BOOLEAN enduser = false;
-    EFI_STATUS ret = life_cycle_is_enduser(&enduser);
-    if (EFI_ERROR(ret)) {
-        trusty_error("Failed to get eom var.\n");
-        /* For AaaG, set enduser to TRUE for AttKB retrieval */
-        if (is_boot_device_virtual())
-            enduser = true;
-
-#ifdef FASTBOOT_KEYBOX_PROVISION
-        enduser = true;
-#endif
-    }
-
-    /* keybox not privisioned yet and is end user, then provision it */
-    if (!is_keybox_retrieved() && enduser) {
-        /* set the attestation_key and append the attest cert:
-        * if the input is NULL, it means  it will retrieve the keybox from trusty side
-        * and parsed by tinyxml2 then save the prikey and certs into the securestorage.
-        * otherwise the inputs will be real keybox buffer which get in the bootloader(fastboot). */
-        rc = trusty_retrieve_keybox(NULL, 0);
-        if (rc != KM_ERROR_OK) {
-#ifndef USER
-            trusty_error("provision keybox has failed( %d )\n", rc);
-#endif
-            return TRUSTY_ERR_GENERIC;
-        }
-
-        rc = set_keybox_provision_magic_data();
-        if (rc != KM_ERROR_OK) {
-            return TRUSTY_ERR_GENERIC;
-        }
-    }
-#endif
-
     return TRUSTY_ERR_NONE;
 }
 
@@ -396,7 +351,7 @@ int trusty_set_boot_params(uint32_t os_version, uint32_t os_patchlevel,
         trusty_error("failed (%d) to serialize request\n", rc);
         goto end;
     }
-    rc = km_do_tipc(KM_SET_BOOT_PARAMS, false, req, req_size, NULL, NULL);
+    rc = km_do_tipc(KM_SET_BOOT_PARAMS, req, req_size, NULL, NULL);
 
 end:
     if (req) {
@@ -422,7 +377,7 @@ static int trusty_send_attestation_data(uint32_t cmd, const uint8_t *data,
         trusty_error("failed (%d) to serialize request\n", rc);
         goto end;
     }
-    rc = km_do_tipc(cmd, true, req, req_size, NULL, NULL);
+    rc = km_do_tipc(cmd, req, req_size, NULL, NULL);
 
 end:
     if (req) {
@@ -444,27 +399,4 @@ int trusty_append_attestation_cert_chain(const uint8_t *cert,
 {
     return trusty_send_attestation_data(KM_APPEND_ATTESTATION_CERT_CHAIN,
                                         cert, cert_size, algorithm);
-}
-
-int trusty_retrieve_keybox(uint8_t *keybox, uint32_t keybox_size)
-{
-    struct km_provision_data provision_data = {
-        .data_size = keybox_size,
-        .data = (uint8_t *)keybox,
-    };
-    uint8_t *req = NULL;
-    uint32_t req_size = 0;
-    int rc = km_provision_data_serialize(&provision_data, &req, &req_size);
-
-    if (rc < 0) {
-        trusty_error("failed (%d) to serialize request\n", rc);
-        goto end;
-    }
-    rc = km_do_tipc(KM_PROVISION_KEYBOX, true, req, req_size, NULL, NULL);
-
-end:
-    if (req) {
-        trusty_free(req);
-    }
-    return rc;
 }

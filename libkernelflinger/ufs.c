@@ -175,7 +175,7 @@ static EFI_STATUS ufs_check_logical_unit(EFI_DEVICE_PATH *p, logical_unit_t log_
 	if (EFI_ERROR(ret))
 		efi_perror(ret, L"Failed to get LUN for device");
 
-	/* First byte is used to identify well known logical units like Boot or RPMB.
+	/* First byte is used to identify well known logical units like Boot.
 	 * Here we only want normal logical units so first byte must be 0
 	 * Second byte contains the LUN number.
 	 */
@@ -220,7 +220,7 @@ static EFI_STATUS ufs_detect_user_unit(EFI_DEVICE_PATH *p)
 	if (EFI_ERROR(ret))
 		efi_perror(ret, L"Failed to get LUN for device");
 
-	/* First byte is used to identify well known logical units like Boot or RPMB.
+	/* First byte is used to identify well known logical units like Boot.
 	 * Here we only want normal logical units so first byte must be 0
 	 * Second byte contains the LUN number.
 	 */

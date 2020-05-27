@@ -51,10 +51,6 @@
 #include "security.h"
 #include "security_interface.h"
 #include "security_efi.h"
-#ifdef RPMB_STORAGE
-#include "rpmb.h"
-#include "rpmb_storage.h"
-#endif
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
@@ -1155,14 +1151,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		goto exit;
 	}
 
-#ifdef RPMB_STORAGE
-	ret = rpmb_storage_init();
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to init RPMB, exit");
-		goto exit;
-	}
-#endif  /* RPMB_STORAGE */
-
 	/* Initialize slot management. */
 	ret = slot_init();
 	if (EFI_ERROR(ret)) {
@@ -1174,14 +1162,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	ret = fastboot_start(&bootimage, &efiimage, &imagesize, &target);
 	if (EFI_ERROR(ret))
 		goto exit;
-
-#ifdef RPMB_STORAGE
-	ret = rpmb_key_init();
-	if (EFI_ERROR(ret)) {
-		error(L"RPMB key init failure for osloader");
-		goto exit;
-	}
-#endif  /* RPMB_STORAGE */
 
 	if (target != UNKNOWN_TARGET)
 		reboot_to_target(target, EfiResetCold);

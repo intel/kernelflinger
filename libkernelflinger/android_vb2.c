@@ -34,9 +34,6 @@
 #include "slot.h"
 #include "pae.h"
 #include "timer.h"
-#ifdef RPMB_STORAGE
-#include "rpmb_storage.h"
-#endif
 #include "acpi.h"
 
 //Global AvbOps data structure

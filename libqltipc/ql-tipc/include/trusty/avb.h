@@ -59,7 +59,7 @@ int trusty_read_rollback_index(uint32_t slot, uint64_t *value);
 int trusty_write_rollback_index(uint32_t slot, uint64_t value);
 /*
  * Send request to secure side to read permanent attributes. When permanent
- * attributes are stored in RPMB, a hash of the permanent attributes which is
+ * attributes are stored in secure storage, a hash of the permanent attributes which is
  * given to AVB during verification MUST still be backed by write-once hardware.
  *
  * Copies attributes received by secure side to |attributes|. If |size| does not
@@ -78,13 +78,13 @@ int trusty_read_permanent_attributes(uint8_t *attributes, uint32_t size);
  */
 int trusty_write_permanent_attributes(uint8_t *attributes, uint32_t size);
 /*
- * Send request to secure side to read device lock state from RPMB.
+ * Send request to secure side to read device lock state from secure storage.
  *
  * Returns one of trusty_err.
  */
 int trusty_read_lock_state(uint8_t *lock_state);
 /*
- * Send request to secure side to write device lock state to RPMB. If the lock
+ * Send request to secure side to write device lock state to secure storage. If the lock
  * state is changed, all rollback index data will be cleared.
  *
  * Returns one of trusty_err.

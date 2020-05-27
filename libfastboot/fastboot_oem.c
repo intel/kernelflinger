@@ -55,9 +55,6 @@
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
-#ifdef RPMB_STORAGE
-#include "rpmb_storage.h"
-#endif
 #include "security.h"
 #include "vars.h"
 #include "security_interface.h"
@@ -410,11 +407,6 @@ static void cmd_oem_set_storage(INTN argc, CHAR8 **argv)
 		tpm2_init();
 #endif
 
-#ifdef RPMB_STORAGE
-	rpmb_storage_init();
-	rpmb_key_init();
-#endif
-
 	ret = gpt_refresh();
 	if (EFI_ERROR(ret)) {
 		fastboot_fail("Failed to refresh partition table: %r", ret);
@@ -549,25 +541,6 @@ static void cmd_oem_erase_efivars(__attribute__((__unused__)) INTN argc,
 	fastboot_okay("");
 }
 
-#ifdef RPMB_STORAGE
-static void cmd_oem_erase_rpmb(INTN argc, __attribute__((__unused__)) CHAR8 **argv)
-{
-	EFI_STATUS ret;
-
-	if (argc != 1) {
-		fastboot_fail("Invalid parameter");
-		return;
-	}
-
-	ret = erase_rpmb_all_blocks();
-	if (EFI_ERROR(ret)) {
-		fastboot_fail("Failed to erase all rpmb data, %r", ret);
-		return;
-	}
-
-	fastboot_okay("");
-}
-#endif
 #endif
 
 static void cmd_oem_get_logs(INTN argc, __attribute__((__unused__)) CHAR8 **argv)
@@ -782,9 +755,6 @@ static struct fastboot_cmd COMMANDS[] = {
 	{ "set-watchdog-counter-max",	LOCKED,		cmd_oem_set_watchdog_counter_max },
 	{ SLOT_FALLBACK,		LOCKED,		cmd_oem_disable_slot_fallback },
 	{ "erase-efivars",		LOCKED,		cmd_oem_erase_efivars },
-#ifdef RPMB_STORAGE
-	{ "clear-rpmb",			LOCKED,		cmd_oem_erase_rpmb },
-#endif
 #endif
 	{ "get-hashes",			LOCKED,		cmd_oem_gethashes  },
 	{ "get-provisioning-logs",	LOCKED,		cmd_oem_get_logs },

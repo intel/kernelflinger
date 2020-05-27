@@ -23,7 +23,6 @@
  */
 
 #include <trusty/avb.h>
-#include <trusty/rpmb.h>
 #include <trusty/trusty_ipc.h>
 #include <trusty/util.h>
 
@@ -76,10 +75,9 @@ static int avb_read_response(struct avb_message *msg, uint32_t cmd, void *resp,
  * @resp: the response buffer
  * @resp_size_p: pointer to the size of the response buffer. changed to the
                  actual size of the response read from the secure side
- * @handle_rpmb: true if the request is expected to invoke RPMB callbacks
  */
 static int avb_do_tipc(uint32_t cmd, void *req, uint32_t req_size, void *resp,
-                       uint32_t *resp_size_p, bool handle_rpmb)
+                       uint32_t *resp_size_p)
 {
     int rc;
     struct avb_message msg = { .cmd = cmd };
@@ -93,16 +91,6 @@ static int avb_do_tipc(uint32_t cmd, void *req, uint32_t req_size, void *resp,
     if (rc < 0) {
         trusty_error("%a: failed (%d) to send AVB request\n", __func__, rc);
         return rc;
-    }
-
-    if (handle_rpmb) {
-        /* handle any incoming RPMB requests */
-        rc = rpmb_storage_proxy_poll();
-        if (rc < 0) {
-            trusty_error("%a: failed (%d) to get RPMB requests\n", __func__,
-                         rc);
-            return rc;
-        }
     }
 
     uint32_t resp_size = resp_size_p ? *resp_size_p : 0;
@@ -129,7 +117,7 @@ static int avb_get_version(uint32_t *version)
     struct avb_get_version_resp resp = { .version = 0 };
     uint32_t resp_size = sizeof(resp);
 
-    rc = avb_do_tipc(AVB_GET_VERSION, NULL, 0, &resp, &resp_size, false);
+    rc = avb_do_tipc(AVB_GET_VERSION, NULL, 0, &resp, &resp_size);
 
     *version = resp.version;
     return rc;
@@ -192,7 +180,7 @@ int trusty_read_rollback_index(uint32_t slot, uint64_t *value)
     uint32_t resp_size = sizeof(resp);
 
     rc = avb_do_tipc(READ_ROLLBACK_INDEX, &req, sizeof(req), &resp,
-                     &resp_size, true);
+                     &resp_size);
 
     *value = resp.value;
     return rc;
@@ -206,7 +194,7 @@ int trusty_write_rollback_index(uint32_t slot, uint64_t value)
     uint32_t resp_size = sizeof(resp);
 
     rc = avb_do_tipc(WRITE_ROLLBACK_INDEX, &req, sizeof(req), &resp,
-                     &resp_size, true);
+                     &resp_size);
     return rc;
 }
 
@@ -215,7 +203,7 @@ int trusty_read_permanent_attributes(uint8_t *attributes, uint32_t size)
     uint8_t resp_buf[AVB_MAX_BUFFER_LENGTH];
     uint32_t resp_size = AVB_MAX_BUFFER_LENGTH;
     int rc = avb_do_tipc(READ_PERMANENT_ATTRIBUTES, NULL, 0, resp_buf,
-                         &resp_size, true);
+                         &resp_size);
     if (rc != 0) {
         return rc;
     }
@@ -229,19 +217,17 @@ int trusty_read_permanent_attributes(uint8_t *attributes, uint32_t size)
 
 int trusty_write_permanent_attributes(uint8_t *attributes, uint32_t size)
 {
-    return avb_do_tipc(WRITE_PERMANENT_ATTRIBUTES, attributes, size, NULL, NULL,
-                       true);
+    return avb_do_tipc(WRITE_PERMANENT_ATTRIBUTES, attributes, size, NULL, NULL);
 }
 
 int trusty_read_lock_state(uint8_t *lock_state)
 {
     uint32_t resp_size = sizeof(*lock_state);
-    return avb_do_tipc(READ_LOCK_STATE, NULL, 0, lock_state,
-                       &resp_size, true);
+    return avb_do_tipc(READ_LOCK_STATE, NULL, 0, lock_state, &resp_size);
 }
 
 int trusty_write_lock_state(uint8_t lock_state)
 {
     return avb_do_tipc(WRITE_LOCK_STATE, &lock_state, sizeof(lock_state), NULL,
-                       NULL, true);
+                       NULL);
 }

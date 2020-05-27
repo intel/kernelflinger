@@ -47,8 +47,6 @@ typedef struct {
 
 EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list);
 
-EFI_STATUS get_attkb_key(OUT VOID * key);
-
 EFI_STATUS stop_bls_proto(void);
 
 #endif // _SECURITY_EFI_H_

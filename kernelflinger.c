@@ -60,10 +60,6 @@
 #endif
 #include "oemvars.h"
 #include "slot.h"
-#ifdef RPMB_STORAGE
-#include "rpmb.h"
-#include "rpmb_storage.h"
-#endif
 #ifdef USE_TRUSTY
 #include "trusty_interface.h"
 #include "trusty_common.h"
@@ -1191,15 +1187,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		boot_target = FASTBOOT;
 	}
 
-#ifdef RPMB_STORAGE
-	// Init the rpmb
-	ret = rpmb_storage_init();
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to init RPMB, enter fastboot mode");
-		boot_target = FASTBOOT;
-	}
-#endif  // RPMB_STORAGE
-
 	ret = slot_init();
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Slot management initialization failed");
@@ -1223,16 +1210,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		reboot_to_target(FASTBOOT, EfiResetCold);
 #endif
 	}
-
-#ifdef RPMB_STORAGE
-	if (boot_target != CRASHMODE) {
-		ret = rpmb_key_init();
-		if (EFI_ERROR(ret)) {
-			error(L"RPMB key init failure for osloader");
-			boot_target = FASTBOOT;
-		}
-	}
-#endif
 
 	if (boot_target == POWER_OFF)
 		halt_system();

@@ -53,9 +53,6 @@
 #include "pae.h"
 #include "timer.h"
 #include "android_vb2.h"
-#ifdef RPMB_STORAGE
-#include "rpmb_storage.h"
-#endif
 #include "acpi.h"
 #ifdef USE_FIRSTSTAGE_MOUNT
 #include "firststage_mount.h"
@@ -432,9 +429,6 @@ static inline EFI_STATUS handover_jump(EFI_HANDLE image,
         EFI_STATUS ret = EFI_LOAD_ERROR;
         UINTN map_key, i;
 
-#ifdef RPMB_STORAGE
-        clear_rpmb_key();
-#endif
         log(L"handover jump ...\n");
 
         ret = setup_gdt();

@@ -47,7 +47,6 @@
 #include "gpt.h"
 #include "efilinux.h"
 #include "libtipc.h"
-#include "rpmb_storage.h"
 #include "security_efi.h"
 
 #ifndef SIZE_2MB
@@ -57,6 +56,13 @@
 #ifndef BASE_4GB
 #define BASE_4GB                 0x100000000ULL
 #endif
+
+#define RPMB_KEY_SIZE    32
+#define RPMB_SEED_SIZE  32
+#define RPMB_NUMBER_KEY  10
+#define MMC_PROD_NAME_WITH_PSN_LEN   15
+#define RPMB_MAX_PARTITION_NUMBER 6
+#define RPMB_MAX_KEY_SIZE 64
 
 /* Trusty OS (TOS) definitions */
 #define TOS_HEADER_MAGIC         0x6d6d76656967616d
@@ -348,14 +354,6 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
                 goto cleanup;
         }
 
-#ifdef RPMB_STORAGE
-        ret = get_rpmb_keys(RPMB_MAX_PARTITION_NUMBER, startup_info_v2->rpmb_key);
-        if (EFI_ERROR(ret)){
-                efi_perror(ret, L"Get rpmb key list failed");
-                goto cleanup;
-        }
-#endif
-
         ret = get_address_size_vmm(&temp_vmm_base_address, &temp_vmm_address_size);
         if (EFI_ERROR(ret)){
                 efi_perror(ret, L"Get VMM address failed");
@@ -374,8 +372,6 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
         if (tos_header->startup_struct_version  == TOS_STARTUP_VERSION_V3) {
                 startup_info_v3 = (struct tos_startup_info_v3 *)(UINTN)startup_info_phy_addr;
                 startup_info_v3->efi_system_table = (UINT64)ST;
-                memset(startup_info_v3->attkb_key, 0, sizeof(startup_info_v3->attkb_key));
-                get_attkb_key(startup_info_v3->attkb_key);
         }
         /* Call TOS entry point */
         call_entry = (UINT32(*)(struct tos_startup_info_v2*))(
@@ -391,7 +387,6 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
 
 cleanup:
         OPENSSL_cleanse(startup_info_v2->seed_list, sizeof(startup_info_v2->seed_list));
-        OPENSSL_cleanse(startup_info_v2->rpmb_key, sizeof(startup_info_v2->rpmb_key));
         stop_bls_proto();
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"Error has occurred!");

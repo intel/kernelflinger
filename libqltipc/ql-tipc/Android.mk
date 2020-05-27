@@ -25,16 +25,13 @@ LOCAL_SRC_FILES := \
 	ipc.c \
 	ipc_dev.c \
 	libtipc.c \
-	rpmb_proxy.c \
 	avb.c \
 	arch/x86/trusty_dev.c \
 	arch/x86/trusty_mem.c \
-	storage_ops_osloader.c \
 	sysdeps_osloader.c \
 	util.c \
 	keymaster.c \
 	keymaster_serializable.c \
-	rpmb_sim.c \
 
 ifeq ($(KERNELFLINGER_TRUSTY_PLATFORM),vsbl)
 LOCAL_CFLAGS += -DHYPERVISOR_ACRN

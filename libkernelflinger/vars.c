@@ -41,9 +41,6 @@
 #include "life_cycle.h"
 #include "storage.h"
 #include "security.h"
-#ifdef RPMB_STORAGE
-#include "rpmb_storage.h"
-#endif
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
@@ -295,15 +292,11 @@ enum device_state get_current_state(void)
 			current_state = UNLOCKED;
 			goto exit;
 		}
-#ifdef SECURE_STORAGE_RPMB
-		ret = read_rpmb_device_state(&stored_state);
-#else  /* SECURE_STORAGE_RPMB */
 #ifdef USE_TPM
 		if (!is_platform_secure_boot_enabled() ||
 				(ret = read_device_state_tpm2(&stored_state)) == EFI_NOT_FOUND)
 #endif /* USE_TPM */
 			ret = read_device_state_efi(&stored_state);
-#endif  /* SECURE_STORAGE_RPMB */
 
 		if (ret == EFI_NOT_FOUND && !is_boot_device_virtual()) {
 			set_provisioning_mode(FALSE);
@@ -367,15 +360,11 @@ EFI_STATUS set_current_state(enum device_state state)
 	}
 
 	if (!is_live_boot()) {
-#ifdef SECURE_STORAGE_RPMB
-		ret = write_rpmb_device_state(stored_state);
-#else /* SECURE_STORAGE_RPMB */
 #ifdef USE_TPM
 		if (!is_platform_secure_boot_enabled() ||
 				(ret = write_device_state_tpm2(stored_state)) == EFI_NOT_FOUND)
 #endif /* USE_TPM */
 			ret = write_device_state_efi(stored_state);
-#endif /* SECURE_STORAGE_RPMB */
 	}
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to set device state to %d", stored_state);

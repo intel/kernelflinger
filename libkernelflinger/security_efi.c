@@ -38,22 +38,6 @@
 #include "tpm2_security.h"
 #endif
 
-#ifdef RPMB_STORAGE
-#include "rpmb_storage.h"
-
-static UINT8 fixed_rpmb_keys[][RPMB_KEY_SIZE] = {
-#ifdef FIXED_RPMB_KEY
-		FIXED_RPMB_KEY
-#else
-		"\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31\x31",
-		"12345ABCDEF1234512345ABCDEF12345"
-#endif
-};
-
-#define BLS_MAX_RPMB_KEY 6
-static BOOTLOADER_RPMB_KEY bls_rpmb_key[BLS_MAX_RPMB_KEY];
-#endif
-
 static EFI_GUID bls_guid = BOOTLOADER_SEED_PROTOCOL_GUID;
 static BOOTLOADER_SEED_PROTOCOL *bls_proto = NULL;
 
@@ -93,45 +77,6 @@ EFI_STATUS stop_bls_proto(void)
 EFI_STATUS set_device_security_info(__attribute__((unused)) IN void *security_data)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
-
-#ifdef RPMB_STORAGE
-	BOOTLOADER_SEED_PROTOCOL *bls;
-	UINT8 key_count = BLS_MAX_RPMB_KEY;
-	UINT8 rpmb_keys[BLS_MAX_RPMB_KEY][RPMB_KEY_SIZE];
-	UINT8 i;
-
-	// Set the fixed RPMB key
-	if (is_live_boot()) {
-		// For USB live boot case, always use one fixed RPMB key.
-		return set_rpmb_derived_key(fixed_rpmb_keys, RPMB_KEY_SIZE, 1);
-	}
-
-	bls = get_bls_proto();
-	if (bls) {
-		ret = uefi_call_wrapper(bls->GetRpmbKey, 2, &key_count, bls_rpmb_key);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"call GetRpmbKey of bootloader seed protocol fail");
-			ret = set_rpmb_derived_key(fixed_rpmb_keys,
-				sizeof(fixed_rpmb_keys), ARRAY_SIZE(fixed_rpmb_keys));
-			return ret;
-		}
-
-		debug(L"call GetRpmbKey of bootloader seed protocol success");
-
-		for(i = 0; i < key_count; i++) {
-			ret = memcpy_s(rpmb_keys[i], sizeof(rpmb_keys[0]), bls_rpmb_key[i].rpmb_key,
-						   RPMB_KEY_SIZE);
-			if (EFI_ERROR(ret))
-				return ret;
-		}
-
-		ret = set_rpmb_derived_key(rpmb_keys, key_count * RPMB_KEY_SIZE, key_count);
-		return ret;
-	}
-
-	// Try to several possible fixed RPMB keys
-	ret = set_rpmb_derived_key(fixed_rpmb_keys, sizeof(fixed_rpmb_keys), ARRAY_SIZE(fixed_rpmb_keys));
-#endif
 
 	return ret;
 }
@@ -235,21 +180,5 @@ EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
 	barrier();
 #endif
 
-	return ret;
-}
-
-EFI_STATUS get_attkb_key(OUT VOID * key)
-{
-	EFI_STATUS ret = EFI_SUCCESS;
-	BOOTLOADER_SEED_PROTOCOL *bls;
-
-	bls = get_bls_proto();
-	if (bls) {
-		ret = uefi_call_wrapper(bls->GetAttKBEncKey, 1, key);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Get attkb key failed");
-			return ret;
-		}
-	}
 	return ret;
 }
