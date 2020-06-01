@@ -760,11 +760,11 @@ EFI_STATUS rpmb_key_init(void)
 
 	if (!is_rpmb_programed()) {
 		debug(L"RPMB key is not programmed, use the first derived key.");
-		ret = program_rpmb_key_in_sim_real(key);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"RPMB key program failed");
-			return ret;
-		}
+//		ret = program_rpmb_key_in_sim_real(key);
+//		if (EFI_ERROR(ret)) {
+//			efi_perror(ret, L"RPMB key program failed");
+//			return ret;
+//		}
 	} else {
 		debug(L"RPMB already programmed");
 		ret = set_rpmb_key(key);

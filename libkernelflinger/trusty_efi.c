@@ -428,8 +428,8 @@ EFI_STATUS start_trusty(VOID *tosimage)
         }
         set_boottime_stamp(TM_LAUNCH_TRUSTY_DONE);
         // set up ql-ipc connection
-        trusty_ipc_init();
-        trusty_ipc_shutdown();
+//        trusty_ipc_init();
+//        trusty_ipc_shutdown();
 
         return EFI_SUCCESS;
 }
