@@ -39,11 +39,7 @@
 #include "adb.h"
 #endif
 
-#ifdef BUILD_ANDROID_THINGS
-#define FIRST_TIMEOUT_SECS	1
-#else
 #define FIRST_TIMEOUT_SECS	5
-#endif
 #define SECOND_TIMEOUT_SECS	30
 
 #define PRESS_TO_PAUSE_FMT		"Press %a to pause %a"
@@ -365,11 +361,7 @@ enum boot_target ux_prompt_user(enum ux_error_code code, BOOLEAN power_off, UINT
 		footer_text[4].str = "BOOT_STATE is RED but allow to boot anyway on eng builds!";
 		display_text(code, prompt->color, empty_text, text, footer_text);
 #endif
-#ifdef BUILD_ANDROID_THINGS
-		ui_wait_for_event(FIRST_TIMEOUT_SECS, EV_TIMEOUT);
-#else
 		ui_wait_for_event(SECOND_TIMEOUT_SECS, EV_TIMEOUT);
-#endif
 		goto out;
 	}
 

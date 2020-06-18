@@ -95,11 +95,6 @@ LOCAL_SRC_FILES := \
     libavb_ab/avb_ab_flow.c \
     libavb/avb_sha256.c
 
-ifeq ($(BUILD_ANDROID_THINGS),true)
-LOCAL_SRC_FILES += \
-    libavb_atx/avb_atx_validate.c
-endif
-
 LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,../libkernelflinger) \
 	$(addprefix $(LOCAL_PATH)/,../libsslsupport)

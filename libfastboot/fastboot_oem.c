@@ -634,29 +634,6 @@ static void cmd_fuse(INTN argc, CHAR8 **argv)
 	fastboot_run_cmd(cmdlist_fuse, (char *)argv[1], argc - 1, argv + 1);
 }
 
-#ifdef BUILD_ANDROID_THINGS
-static void cmd_fuse_atperm(INTN argc, __attribute__((__unused__)) CHAR8 **argv)
-{
-	EFI_STATUS ret;
-	struct download_buffer *dl;
-
-	if (argc != 1) {
-		fastboot_fail("Invalid parameters");
-		return;
-	}
-
-	dl = fastboot_download_buffer();
-
-	ret = tpm2_fuse_perm_attr(dl->data, dl->size);
-	if (EFI_ERROR(ret)) {
-		fastboot_fail("Fusing AT PERM failed, %r", ret);
-		return;
-	}
-
-	fastboot_okay("");
-}
-#endif  // BUILD_ANDROID_THINGS
-
 static void cmd_fuse_vbmeta_key_hash(INTN argc, __attribute__((__unused__)) CHAR8 **argv)
 {
 	EFI_STATUS ret;
@@ -769,9 +746,6 @@ static struct fastboot_cmd COMMANDS[] = {
 
 #ifdef USE_TPM
 static struct fastboot_cmd COMMANDS_FUSE[] = {
-#ifdef BUILD_ANDROID_THINGS
-	{ "at-perm-attr",		LOCKED,		cmd_fuse_atperm },
-#endif
 	{ "vbmeta-key-hash",		UNLOCKED,	cmd_fuse_vbmeta_key_hash },
 	{ "bootloader-policy",		UNLOCKED,	cmd_fuse_bootloader_policy },
 	{ "lock-tpm2-owner",		UNLOCKED,	cmd_fuse_tpm2_lock_owner },

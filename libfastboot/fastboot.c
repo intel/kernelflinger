@@ -328,15 +328,9 @@ EFI_STATUS fastboot_publish(const char *name, const char *value)
 	return EFI_SUCCESS;
 }
 
-#ifdef BUILD_ANDROID_THINGS
-#define EXT4_PART_GUID	\
-	{ 0x0bb7e6ed, 0x4424, 0x49c0, \
-	  { 0x93, 0x72, 0x7f, 0xba, 0xb4, 0x65, 0xab, 0x4c } }
-#else
 #define EXT4_PART_GUID	\
 	{ 0x0fc63daf, 0x8483, 0x4772, \
 	  { 0x8e, 0x79, 0x3d, 0x69, 0xd8, 0x47, 0x7d, 0xe4 } }
-#endif
 
 static const char *get_ptype_str(EFI_GUID *guid)
 {
@@ -460,7 +454,6 @@ static EFI_STATUS publish_slots(void)
 	if (EFI_ERROR(ret))
 		return ret;
 
-#ifndef BUILD_ANDROID_THINGS
 	for (i = 0, j = 0; i < nb_slots; i++) {
 		len = efi_snprintf((CHAR8 *)var + j, sizeof(var) - j,
 				   i == 0 ? (CHAR8 *)"%a" : (CHAR8 *)",%a",
@@ -473,7 +466,6 @@ static EFI_STATUS publish_slots(void)
 	ret = fastboot_publish("slot-suffixes", var);
 	if (EFI_ERROR(ret))
 		return ret;
-#endif
 
 	for (i = 0; i < nb_slots; i++)
 		for (j = 0; j < ARRAY_SIZE(descriptors); j++) {
@@ -1256,11 +1248,6 @@ static EFI_STATUS fastboot_init()
 	char download_max_str[30];
 	static char default_command_buffer[MAGIC_LENGTH];
 
-#ifdef BUILD_ANDROID_THINGS
-	UINTN size;
-	char* data = NULL;
-#endif
-
 	ret = fastboot_set_command_buffer(default_command_buffer,
 					  sizeof(default_command_buffer));
 	if (EFI_ERROR(ret)) {
@@ -1289,18 +1276,6 @@ static EFI_STATUS fastboot_init()
 	ret = fastboot_publish("product", info_product());
 	if (EFI_ERROR(ret))
 		goto error;
-
-#ifdef BUILD_ANDROID_THINGS
-	/* publish serial number*/
-	ret = get_efi_variable(&loader_guid, SERIAL_NUM_VAR, &size, (VOID **)&data,
-		NULL);
-	if (EFI_ERROR(ret) || !data || !size)
-		fastboot_publish("SerialNum", NULL);
-	else
-		fastboot_publish("SerialNum", data);
-
-	data = NULL;
-#endif
 
 	ret = fastboot_publish("variant", info_variant());
 	if (EFI_ERROR(ret))

@@ -105,7 +105,6 @@ Kerneflinger specific configuration flags:
    BoringSSL library. 
 * `BOARD_AVB_ENABLE`: support AVB (Android Verify Boot)
 * `BOARD_SLOT_AB_ENABLE`: support AVB A/B slot.
-* `BUILD_ANDROID_THINGS`: enable some feature for Android Things.
 
 Command line parameters
 -----------------------

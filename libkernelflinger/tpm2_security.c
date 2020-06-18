@@ -816,15 +816,6 @@ static EFI_STATUS tpm2_check_trusty_seed_index(void)
 	return EFI_SUCCESS;
 }
 
-#ifdef BUILD_ANDROID_THINGS
-EFI_STATUS tpm2_fuse_perm_attr(
-		__attribute__((__unused__)) void *data,
-		__attribute__((__unused__)) uint32_t size)
-{
-	return EFI_UNSUPPORTED;
-}
-#endif
-
 EFI_STATUS tpm2_fuse_vbmeta_key_hash(
 		__attribute__((__unused__)) void *data,
 		__attribute__((__unused__)) uint32_t size)

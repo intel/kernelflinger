@@ -816,11 +816,7 @@ char *get_serial_number(void)
 		goto bad;
 	}
 
-#ifdef BUILD_ANDROID_THINGS
-	efi_snprintf((CHAR8*)serialno, SERIALNO_MAX_SIZE, (CHAR8*) "%a%a", TARGET_BOOTLOADER_BOARD_NAME, bios_serialno);
-#else
 	efi_snprintf((CHAR8*)serialno, SERIALNO_MAX_SIZE, (CHAR8*) "%a", bios_serialno);
-#endif
 
 	for (pos = serialno; *pos; pos++) {
 		/* Replace foreign characters with zeroes */
@@ -846,19 +842,7 @@ char *get_serial_number(void)
 
 	return serialno;
 bad:
-#ifdef BUILD_ANDROID_THINGS
-	pos = get_serialno_var();
-	if (pos == NULL) {
-		error(L"SERIAL number is NULL\n");
-		strncpy_s((CHAR8 *)serialno, sizeof(serialno), (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
-	} else {
-		error(L"Valid serial number read from EFI vars\n");
-		strncpy_s((CHAR8 *)serialno, sizeof(serialno), (CHAR8 *)pos, SERIALNO_MAX_SIZE);
-		FreePool(pos);
-	}
-#else
 	strncpy_s((CHAR8 *)serialno, sizeof(serialno), (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
-#endif
 	return serialno;
 }
 

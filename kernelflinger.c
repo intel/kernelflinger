@@ -909,13 +909,8 @@ static EFI_STATUS load_image(VOID *bootimage, UINT8 boot_state,
 		set_boottime_stamp(TM_LOAD_TOS_DONE);
 		ret = start_trusty(tosimage);
 		if (EFI_ERROR(ret)) {
-#ifndef BUILD_ANDROID_THINGS
 			efi_perror(ret, L"Unable to start trusty; stop.");
 			die();
-#else
-			efi_perror(ret, L"Unable to start trusty");
-			efi_perror(ret, L"Continue to boot");
-#endif
 		}
 		set_boottime_stamp(TM_PROCRSS_TRUSTY_DONE);
 	}

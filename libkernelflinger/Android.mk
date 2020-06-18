@@ -256,9 +256,6 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_ab
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_user
-ifeq ($(BUILD_ANDROID_THINGS),true)
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_atx
-endif
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include/libqltipc
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include/libheci
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include/libelfloader
