@@ -39,6 +39,7 @@
 #include "gpt.h"
 #include "gpt_bin.h"
 #include "storage.h"
+#include "pci.h"
 
 #define PROTECTIVE_MBR 0xEE
 
@@ -437,6 +438,71 @@ static void copy_part(struct gpt_partition *in, struct gpt_partition *out)
 			sizeof(out->name) - PREFIX_LEN * sizeof(CHAR16));
 }
 
+#ifdef USE_DEDICATED_DATA_PARTITION
+EFI_STATUS get_dedicated_disk(struct gpt_partition_interface *gpart)
+{
+	EFI_STATUS ret;
+	EFI_HANDLE *handles;
+	UINTN nb_handle = 0;
+	PCI_DEVICE_PATH *exclude_device;
+	EFI_DEVICE_PATH *device;
+	PCI_DEVICE_PATH *pci;
+	EFI_BLOCK_IO *bio;
+	UINTN i;
+
+	device = DevicePathFromHandle(sdisk.handle);
+	if (!device)
+		return EFI_NOT_FOUND;
+
+	exclude_device = get_pci_device_path(device);
+	if (exclude_device == NULL)
+		return EFI_NOT_FOUND;
+
+	ret = uefi_call_wrapper(BS->LocateHandleBuffer, 5, ByProtocol,
+				&BlockIoProtocol, NULL, &nb_handle, &handles);
+	if (EFI_ERROR(ret))
+		return EFI_NOT_FOUND;
+
+	gpart->bio = NULL;
+	gpart->handle = 0;
+	memset(&gpart->part, 0, sizeof(gpart->part));
+	for (i = 0; i < nb_handle; i++) {
+		device = DevicePathFromHandle(handles[i]);
+		if (device == NULL)
+			continue;
+
+		pci = get_pci_device_path(device);
+		if (pci == NULL)
+			continue;
+
+		if (exclude_device->Function == pci->Function &&
+				exclude_device->Device == pci->Device)
+			continue;
+
+		ret = uefi_call_wrapper(BS->HandleProtocol, 3, handles[i], &BlockIoProtocol, (VOID *)&bio);
+		if (EFI_ERROR(ret))
+			continue;
+
+		ret = uefi_call_wrapper(BS->HandleProtocol, 3, handles[i], &DiskIoProtocol, (VOID *)&gpart->dio);
+		if (EFI_ERROR(ret))
+			continue;
+
+		gpart->handle = handles[i];
+		gpart->bio = bio;
+		gpart->part.starting_lba = 0;
+		gpart->part.ending_lba = bio->Media->LastBlock;
+		break;
+	}
+	FreePool(handles);
+
+	if (gpart->handle == 0)
+		return EFI_NOT_FOUND;
+
+	debug(L"dedicated data parition blocks: 0x%X", gpart->part.ending_lba + 1);
+	return EFI_SUCCESS;
+}
+#endif
+
 EFI_STATUS gpt_get_partition_by_label(const CHAR16 *label,
 				      struct gpt_partition_interface *gpart,
 				      logical_unit_t log_unit)
@@ -446,6 +512,19 @@ EFI_STATUS gpt_get_partition_by_label(const CHAR16 *label,
 
 	if (!label || !gpart)
 		return EFI_INVALID_PARAMETER;
+
+#ifdef USE_DEDICATED_DATA_PARTITION
+	/* if dynamic partition enabled, data partition's name is "userdata";
+	 * if dynamic partition disabled, data partition's name is "data"
+	 */
+	if (!StrCmp(label, L"userdata") || !StrCmp(label, L"data")) {
+		ret = get_dedicated_disk(gpart);
+		if (ret == EFI_SUCCESS) {
+			CopyMem(gpart->part.name, label, sizeof(gpart->part.name));
+			return EFI_SUCCESS;
+		}
+	}
+#endif
 
 	ret = gpt_cache_partition(log_unit);
 	if (EFI_ERROR(ret))
