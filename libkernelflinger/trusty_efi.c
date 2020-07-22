@@ -57,13 +57,6 @@
 #define BASE_4GB                 0x100000000ULL
 #endif
 
-#define RPMB_KEY_SIZE    32
-#define RPMB_SEED_SIZE  32
-#define RPMB_NUMBER_KEY  10
-#define MMC_PROD_NAME_WITH_PSN_LEN   15
-#define RPMB_MAX_PARTITION_NUMBER 6
-#define RPMB_MAX_KEY_SIZE 64
-
 /* Trusty OS (TOS) definitions */
 #define TOS_HEADER_MAGIC         0x6d6d76656967616d
 #define TOS_HIGH_ADDR            0x3fffffff   /* Less than 1 GB */
@@ -73,7 +66,6 @@
 #define SIPI_AP_MEMORY_LENGTH    0x1000  /* 4KB in length */
 #define VMM_MEM_SIZE             0x01000000
 #define TRUSTY_MEM_SIZE          0x01400000
-#define TRUSTY_KEYBOX_KEY_SIZE   32
  /*
  * this is the startup structure containes the informations for ikgt and trusty
  * boot requirement(memory base/size, num_seed, seedlist, serials etc.)
@@ -94,20 +86,7 @@ struct tos_startup_info_v2 {
         UINT64 vmm_mem_base;
         UINT32 trusty_mem_size;
         UINT32 vmm_mem_size;
-        /*
-        rpmb keys, Currently HMAC-SHA256 is used in RPMB spec and 256-bit (32byte) is enough.
-        Hence only lower 32 bytes will be used for now for each entry. But keep higher 32 bytes
-        for future extension. Note that, RPMB keys are already tied to storage device serial number.
-        If there are multiple RPMB partitions, then we will get multiple available RPMB keys.
-        And if rpmb_key[n][64] == 0, then the n-th RPMB key is unavailable (Either because of no such
-        RPMB partition, or because OSloader doesn't want to share the n-th RPMB key with Trusty)
-        */
-        UINT8 rpmb_key[RPMB_MAX_PARTITION_NUMBER][RPMB_MAX_KEY_SIZE];
-        /* Seed */
-        UINT32 num_seeds;
-        seed_info_t seed_list[BOOTLOADER_SEED_MAX_ENTRIES];
-        /* Concatenation of mmc product name with a string representation of PSN */
-        UINT8 serial[MMC_PROD_NAME_WITH_PSN_LEN];
+        UINT8 seed[SECURITY_EFI_TRUSTY_SEED_LEN];
 } __attribute__((packed)) ;
 
 
@@ -126,21 +105,7 @@ struct tos_startup_info_v3 {
         UINT64 vmm_mem_base;
         UINT32 trusty_mem_size;
         UINT32 vmm_mem_size;
-        /*
-        rpmb keys, Currently HMAC-SHA256 is used in RPMB spec and 256-bit (32byte) is enough.
-        Hence only lower 32 bytes will be used for now for each entry. But keep higher 32 bytes
-        for future extension. Note that, RPMB keys are already tied to storage device serial number.
-        If there are multiple RPMB partitions, then we will get multiple available RPMB keys.
-        And if rpmb_key[n][64] == 0, then the n-th RPMB key is unavailable (Either because of no such
-        RPMB partition, or because OSloader doesn't want to share the n-th RPMB key with Trusty)
-        */
-        UINT8 rpmb_key[RPMB_MAX_PARTITION_NUMBER][RPMB_MAX_KEY_SIZE];
-        /* Seed */
-        UINT32 num_seeds;
-        seed_info_t seed_list[BOOTLOADER_SEED_MAX_ENTRIES];
-        /* Concatenation of mmc product name with a string representation of PSN */
-        UINT8 serial[MMC_PROD_NAME_WITH_PSN_LEN];
-        UINT8 attkb_key[TRUSTY_KEYBOX_KEY_SIZE];
+        UINT8 seed[SECURITY_EFI_TRUSTY_SEED_LEN];
         UINT64 efi_system_table;
 } __attribute__((packed)) ;
 /*
@@ -348,7 +313,7 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
         startup_info_v2->efi_memmap_size = desc_size * nr_entries;
         startup_info_v2->sipi_ap_wkup_addr = (UINT32)sipi_ap_addr;
 
-        ret = get_seeds(&startup_info_v2->num_seeds, (VOID*)startup_info_v2->seed_list);
+        ret = get_seed((VOID*)startup_info_v2->seed);
         if (EFI_ERROR(ret)){
                 efi_perror(ret, L"Get trusty seed failed");
                 goto cleanup;
@@ -386,7 +351,7 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
         debug(L"TOS launch succeeded!");
 
 cleanup:
-        OPENSSL_cleanse(startup_info_v2->seed_list, sizeof(startup_info_v2->seed_list));
+        OPENSSL_cleanse(startup_info_v2->seed, SECURITY_EFI_TRUSTY_SEED_LEN);
         stop_bls_proto();
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"Error has occurred!");

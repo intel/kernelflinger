@@ -239,14 +239,10 @@ static AvbIOResult read_rollback_index(__attribute__((unused)) AvbOps* ops,
   if (is_live_boot())
     ret = EFI_NOT_FOUND;
   else {
-#if defined(SECURE_STORAGE_EFIVAR)
 #ifdef USE_TPM
-    if (!is_platform_secure_boot_enabled() ||
-        (ret = read_rollback_index_tpm2(rollback_index_slot, out_rollback_index)) == EFI_NOT_FOUND)
-#endif // USE_TPM
-      ret = read_efi_rollback_index(rollback_index_slot, out_rollback_index);
+    ret = read_rollback_index_tpm2(rollback_index_slot, out_rollback_index);
 #else
-  *out_rollback_index = 0;
+    ret = read_efi_rollback_index(rollback_index_slot, out_rollback_index);
 #endif
   }
 
@@ -273,12 +269,10 @@ static AvbIOResult write_rollback_index(__attribute__((unused)) AvbOps* ops,
   if (is_live_boot())
     ret = EFI_SUCCESS;
   else {
-#if defined(SECURE_STORAGE_EFIVAR)
 #ifdef USE_TPM
-    if (!is_platform_secure_boot_enabled() ||
-        (ret = write_rollback_index_tpm2(rollback_index_slot, rollback_index)) == EFI_NOT_FOUND)
-#endif // USE_TPM
-      ret = write_efi_rollback_index(rollback_index_slot, rollback_index);
+    ret = write_rollback_index_tpm2(rollback_index_slot, rollback_index);
+#else
+    ret = write_efi_rollback_index(rollback_index_slot, rollback_index);
 #endif
   }
   if (EFI_ERROR(ret)) {

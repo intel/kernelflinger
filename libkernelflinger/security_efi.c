@@ -38,6 +38,8 @@
 #include "tpm2_security.h"
 #endif
 
+#define BOOTLOADER_SEED_MAX_ENTRIES  10
+
 static EFI_GUID bls_guid = BOOTLOADER_SEED_PROTOCOL_GUID;
 static BOOTLOADER_SEED_PROTOCOL *bls_proto = NULL;
 
@@ -123,62 +125,116 @@ BOOLEAN is_eom_and_secureboot_enabled(VOID)
 	return sbflags && enduser;
 }
 
-/* initially hardcoded all seeds as 0, and svn is expected as descending order */
-EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list)
+static EFI_STATUS bls_get_seed_list(BOOTLOADER_SEED_INFO_LIST *blist)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
-	seed_info_t *tmp;
-	UINT32 i;
-#ifdef USE_TPM
-	UINT8 seed[TRUSTY_SEED_SIZE];
-#endif
 	BOOTLOADER_SEED_PROTOCOL *bls;
-	BOOTLOADER_SEED_INFO_LIST blist;
-
-	for (i = 0; i < BOOTLOADER_SEED_MAX_ENTRIES; i++) {
-		tmp = (seed_info_t *)(seed_list + i * sizeof(seed_info_t));
-		tmp->svn = BOOTLOADER_SEED_MAX_ENTRIES - i - 1;
-		memset(tmp->seed, 0, SECURITY_EFI_TRUSTY_SEED_LEN);
-	}
-	*num_seeds = BOOTLOADER_SEED_MAX_ENTRIES;
 
 	bls = get_bls_proto();
 	if (bls) {
-		ret = uefi_call_wrapper(bls->GetSeedInfoList, 1, &blist);
+		ret = uefi_call_wrapper(bls->GetSeedInfoList, 1, blist);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"call GetSeedInfoList fail");
 			return ret;
 		}
 
 		debug(L"call GetSeedInfoList success");
-		*num_seeds = blist.NumOfSeeds;
-		ret = memcpy_s(seed_list, sizeof(blist.SeedList), blist.SeedList, sizeof(blist.SeedList));
-		memset(&blist, 0, sizeof(blist));
-		barrier();
+	}
+
+	return ret;
+}
+
+static UINT32 bls_get_max_svn_index(BOOTLOADER_SEED_INFO_LIST *blist)
+{
+	UINT32 i, max_svn_idx = 0;
+
+#ifdef USERDEBUG
+	/* if no seed found, use dummy seed for userdebug build */
+	if (blist->NumOfSeeds == 0) {
+		debug(L"No seed found, use dummy seed");
+		memset(blist, 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
+		return 0;
+	}
+#endif
+	if ((blist->NumOfSeeds == 0) || (blist->NumOfSeeds > BOOTLOADER_SEED_MAX_ENTRIES))
+		return -1;
+
+	for (i = 1; i < blist->NumOfSeeds; i++) {
+		if (blist->SeedList[i].cse_svn > blist->SeedList[max_svn_idx].cse_svn) {
+			max_svn_idx = i;
+		}
+	}
+
+	return max_svn_idx;
+}
+
+
+static EFI_STATUS bls_get_seed(VOID *seed)
+{
+	EFI_STATUS ret = EFI_SUCCESS;
+	BOOTLOADER_SEED_INFO_LIST blist;
+	INT32 max_svn_idx;
+
+	memset(&blist, 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
+
+	ret = bls_get_seed_list(&blist);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"failed to get bls seed list");
 		return ret;
 	}
 
+	max_svn_idx = bls_get_max_svn_index(&blist);
+	if (max_svn_idx < 0) {
+		error(L"get max svn idx error");
+		memset(&blist, 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
+		barrier();
+		return EFI_NOT_FOUND;
+	}
+
+	ret = memcpy_s(seed, SECURITY_EFI_TRUSTY_SEED_LEN,
+			(const void *)blist.SeedList[max_svn_idx].seed, SECURITY_EFI_TRUSTY_SEED_LEN);
+
+	return ret;
+}
+
 #ifdef USE_TPM
-	if (is_live_boot() || !is_platform_secure_boot_enabled())
+static EFI_STATUS tpm2_get_seed(VOID *seed)
+{
+	EFI_STATUS ret = EFI_SUCCESS;
+
+	if (is_live_boot())
 		return EFI_SUCCESS;
 
 	ret = tpm2_read_trusty_seed(seed);
 	if (EFI_ERROR(ret)) {
-		if (ret == EFI_NOT_FOUND)
-			return EFI_SUCCESS;
-
 		efi_perror(ret, L"Failed to read trusty seed from TPM");
 		return ret;
 	}
-
 	debug(L"Success read seed from TPM");
-	*num_seeds = 1;
-	tmp = (seed_info_t *)seed_list;
-	tmp->svn = BOOTLOADER_SEED_MAX_ENTRIES - 1;
-	ret = memcpy_s(tmp->seed, sizeof(tmp->seed), seed, TRUSTY_SEED_SIZE);
-	memset(seed, 0, sizeof(seed));
-	barrier();
+
+	return ret;
+}
 #endif
+
+EFI_STATUS get_seed(OUT VOID *seed)
+{
+	EFI_STATUS ret = EFI_SUCCESS;
+
+	if (!seed)
+		return EFI_INVALID_PARAMETER;
+
+	memset(seed, 0, SECURITY_EFI_TRUSTY_SEED_LEN);
+
+#ifdef USE_TPM
+	ret = tpm2_get_seed(seed);
+#else
+	ret = bls_get_seed(seed);
+#endif
+
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to read trusty seed");
+		return ret;
+	}
 
 	return ret;
 }

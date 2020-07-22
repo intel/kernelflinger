@@ -293,11 +293,10 @@ enum device_state get_current_state(void)
 			goto exit;
 		}
 #ifdef USE_TPM
-		if (!is_platform_secure_boot_enabled() ||
-				(ret = read_device_state_tpm2(&stored_state)) == EFI_NOT_FOUND)
-#endif /* USE_TPM */
-			ret = read_device_state_efi(&stored_state);
-
+		ret = read_device_state_tpm2(&stored_state);
+#else
+		ret = read_device_state_efi(&stored_state);
+#endif
 		if (ret == EFI_NOT_FOUND && !is_boot_device_virtual()) {
 			set_provisioning_mode(FALSE);
 
@@ -361,10 +360,10 @@ EFI_STATUS set_current_state(enum device_state state)
 
 	if (!is_live_boot()) {
 #ifdef USE_TPM
-		if (!is_platform_secure_boot_enabled() ||
-				(ret = write_device_state_tpm2(stored_state)) == EFI_NOT_FOUND)
-#endif /* USE_TPM */
-			ret = write_device_state_efi(stored_state);
+		ret = write_device_state_tpm2(stored_state);
+#else
+		ret = write_device_state_efi(stored_state);
+#endif
 	}
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to set device state to %d", stored_state);
@@ -912,7 +911,6 @@ BOOLEAN is_UEFI(VOID)
 	return val.value;
 }
 
-#ifdef SECURE_STORAGE_EFIVAR
 EFI_STATUS read_efi_rollback_index(UINTN rollback_index_slot, uint64_t* out_rollback_index)
 {
 	EFI_STATUS ret;
@@ -956,7 +954,6 @@ EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback
 
 	return ret;
 }
-#endif /* defined(SECURE_STORAGE_EFIVAR) */
 
 EFI_STATUS set_efi_loaded_slot(UINT8 slot)
 {

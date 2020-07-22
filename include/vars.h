@@ -153,10 +153,8 @@ CHAR16 *get_reboot_reason();
 BOOLEAN is_reboot_reason(CHAR16 *reason);
 VOID del_reboot_reason();
 
-#ifdef SECURE_STORAGE_EFIVAR
 EFI_STATUS read_efi_rollback_index(UINTN rollback_index_slot, uint64_t* out_rollback_index);
 EFI_STATUS write_efi_rollback_index(UINTN rollback_index_slot, uint64_t rollback_index);
-#endif
 BOOLEAN is_UEFI(VOID);
 #ifndef USERDEBUG
 #define oem_cert NULL
@@ -174,4 +172,3 @@ EFI_STATUS set_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS error);
 EFI_STATUS get_efi_loaded_slot_failed(UINT8 slot, EFI_STATUS *error);
 
 #endif /* _VARS_H_ */
-

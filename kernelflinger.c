@@ -1167,7 +1167,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 			BOOTLOADER_FILE, BOOTLOADER_FILE_BAK, KFSELF_FILE, KFBACKUP_FILE);
 
 #ifdef USE_TPM
-	if (!is_live_boot() && is_platform_secure_boot_enabled()) {
+	if (!is_live_boot()) {
 		ret = tpm2_init();
 		if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
 			efi_perror(ret, L"Failed to init TPM, enter fastboot mode");

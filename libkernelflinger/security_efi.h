@@ -35,17 +35,9 @@
 #include <efi.h>
 #include <efilib.h>
 
-#define BOOTLOADER_SEED_MAX_ENTRIES  10
 #define SECURITY_EFI_TRUSTY_SEED_LEN 64
 
-/* structure of seed info */
-typedef struct {
-	UINT8 svn;
-	UINT8 padding[3];
-	UINT8 seed[SECURITY_EFI_TRUSTY_SEED_LEN];
-} __attribute__((packed)) seed_info_t;
-
-EFI_STATUS get_seeds(IN UINT32 *num_seeds, OUT VOID *seed_list);
+EFI_STATUS get_seed(OUT VOID *seed);
 
 EFI_STATUS stop_bls_proto(void);
 

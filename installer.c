@@ -1136,14 +1136,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		set_exclude_device(loaded_img->DeviceHandle);
 
 #ifdef USE_TPM
-	if (!is_live_boot() && is_platform_secure_boot_enabled()) {
+	if (!is_live_boot()) {
 		ret = tpm2_init();
 		if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
 			efi_perror(ret, L"Failed to init TPM, exit");
 			goto exit;
 		}
 	}
-#endif  /* USE_TPM */
+#endif
 
 	ret = set_device_security_info(NULL);
 	if (EFI_ERROR(ret)) {
