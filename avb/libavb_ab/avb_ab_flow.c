@@ -372,7 +372,7 @@ AvbABFlowResult avb_ab_flow(AvbABOps* ab_ops,
   /* ... and decrement tries remaining, if applicable. */
   if (!ab_data.slots[slot_index_to_boot].successful_boot &&
       ab_data.slots[slot_index_to_boot].tries_remaining > 0) {
-    ab_data.slots[slot_index_to_boot].tries_remaining -= 1;
+    //ab_data.slots[slot_index_to_boot].tries_remaining -= 1;
   }
 
 out:
