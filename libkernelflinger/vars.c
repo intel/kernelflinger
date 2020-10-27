@@ -383,6 +383,32 @@ EFI_STATUS refresh_current_state(void)
 	return EFI_SUCCESS;
 }
 
+BOOLEAN device_need_locked(void)
+{
+#ifndef USE_TPM
+	UINT8 stored_state;
+	EFI_STATUS ret = EFI_SUCCESS;
+#endif
+
+	if (is_live_boot())
+		return FALSE;
+
+#ifdef USE_TPM
+	return tpm2_bootloader_need_init();
+#else
+
+	ret = read_device_state_efi(&stored_state);
+	if (EFI_NOT_FOUND == ret)
+		return TRUE;
+
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Read device state failed, assuming locked");
+	}
+
+	return FALSE;
+#endif
+}
+
 #ifndef USER
 EFI_STATUS reprovision_state_vars(VOID)
 {

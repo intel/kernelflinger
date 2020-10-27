@@ -55,6 +55,7 @@ EFI_STATUS read_device_state_tpm2(UINT8 *state);
 EFI_STATUS write_device_state_tpm2(UINT8 state);
 EFI_STATUS read_rollback_index_tpm2(size_t rollback_index_slot, uint64_t *out_rollback_index);
 EFI_STATUS write_rollback_index_tpm2(size_t rollback_index_slot, uint64_t rollback_index);
+BOOLEAN tpm2_bootloader_need_init(void);
 
 #ifndef USER
 EFI_STATUS tpm2_show_index(UINT32 index, uint8_t *out_buffer, UINTN out_buffer_size);

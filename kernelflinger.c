@@ -1120,6 +1120,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	VOID *bootimage = NULL;
 	BOOLEAN oneshot = FALSE;
 	BOOLEAN lock_prompted = FALSE;
+	BOOLEAN need_lock;
 	enum boot_target boot_target = NORMAL_BOOT;
 	UINT8 boot_state = BOOT_STATE_GREEN;
 	VBDATA *vb_data = NULL;
@@ -1166,6 +1167,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	uefi_check_upgrade(g_loaded_image, BOOTLOADER_LABEL, KFUPDATE_FILE,
 			BOOTLOADER_FILE, BOOTLOADER_FILE_BAK, KFSELF_FILE, KFBACKUP_FILE);
 
+	need_lock = device_need_locked();
+
 #ifdef USE_TPM
 	if (!is_live_boot()) {
 		ret = tpm2_init();
@@ -1175,6 +1178,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		}
 	}
 #endif
+
+	/* For civ, flash images to disk is not MUST. So set device to LOCKED 
+	 * state by default on the first boot.
+	*/
+	if (need_lock)
+		set_current_state(LOCKED);
 
 	ret = set_device_security_info(NULL);
 	if (EFI_ERROR(ret)) {

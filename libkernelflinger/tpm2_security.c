@@ -1012,6 +1012,22 @@ EFI_STATUS write_rollback_index_tpm2(size_t rollback_index_slot, uint64_t rollba
 	return ret;
 }
 
+BOOLEAN tpm2_bootloader_need_init(void)
+{
+	EFI_STATUS ret;
+	TPM2B_NV_PUBLIC NvPublic;
+	TPM2B_NAME NvName;
+
+	ret = Tpm2NvReadPublic(NV_INDEX_BOOTLOADER, &NvPublic, &NvName);
+	if (EFI_ERROR(ret)) {
+		if (ret == EFI_NOT_FOUND)
+			return TRUE;
+		efi_perror(ret, L"Failed to read NV_INDEX_BOOTLOADER");
+	}
+
+	return FALSE;
+}
+
 EFI_STATUS tpm2_init(void)
 {
 	EFI_STATUS ret;
