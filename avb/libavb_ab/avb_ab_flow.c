@@ -61,7 +61,7 @@ void avb_ab_data_init(AvbABData* data) {
   avb_memset(data, '\0', sizeof(AvbABData));
   data->magic = BOOT_CTRL_MAGIC;
   data->version_major = BOOT_CTRL_VERSION;
-  data->nb_slot = sizeof(data->slot_info)/sizeof(data->slot_info[0]);
+  data->nb_slot = 2;
   data->slot_info[0].priority = AVB_AB_MAX_PRIORITY;
   data->slot_info[0].tries_remaining = AVB_AB_MAX_TRIES_REMAINING;
   data->slot_info[0].successful_boot = 0;
