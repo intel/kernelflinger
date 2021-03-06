@@ -771,6 +771,12 @@ EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE])
 		goto out;
 	}
 
+	{
+		int i;
+		for (i = 0 ; i < TRUSTY_SEED_SIZE ; i++)
+			debug(L"seed[%d] = 0x%02x", i, seed[i]);
+	}
+
 	return EFI_SUCCESS;
 
 out:
