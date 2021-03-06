@@ -66,3 +66,12 @@ const char *info_hw_revision(void)
 {
 	return SMBIOS_GET_STRING(1, Version);
 }
+
+const char *info_cpu_abi(void)
+{
+#ifdef ARCH_X86_64
+	return "x86_64";
+#else
+	return "x86";
+#endif
+}

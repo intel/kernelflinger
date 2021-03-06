@@ -1285,6 +1285,10 @@ static EFI_STATUS fastboot_init()
 	if (EFI_ERROR(ret))
 		goto error;
 
+	ret = fastboot_publish("cpu-abi", info_cpu_abi());
+	if (EFI_ERROR(ret))
+		goto error;
+
 	ret = fastboot_publish("version-bootloader", info_bootloader_version());
 	if (EFI_ERROR(ret))
 		goto error;
