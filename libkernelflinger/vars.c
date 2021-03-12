@@ -791,6 +791,21 @@ char *get_device_id(void)
 }
 #endif
 
+/* This is a WA, we use the asset field of type_chassis to transfer the
+ * host ip to bootloader.*/
+char *get_host_ip(void)
+{
+	static char host_ip[ANDROID_PROP_VALUE_MAX];
+
+	if (!host_ip[0]) {
+            SMBIOS_TO_BUFFER(host_ip, TYPE_CHASSIS, AssetTag);
+            CDD_clean_string(host_ip);
+            debug(L"Detected host ip '%a'", host_ip);
+	}
+
+	return host_ip;
+}
+
 char *get_serialno_var()
 {
 	CHAR8 *data;

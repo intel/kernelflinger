@@ -35,6 +35,7 @@
 #include <fastboot.h>
 #include <usb.h>
 #include <tcp.h>
+#include <vars.h>
 #include <transport.h>
 
 /* USB */
@@ -172,6 +173,36 @@ static void transport_tcp_tx_cb(void *buf, UINT32 size)
 		tx_callback(buf, size);
 }
 
+static EFI_STATUS fastboot_get_host_ip(EFI_IPv4_ADDRESS *address)
+{
+       char *ip_ptr = NULL;
+       unsigned long part = 0;
+       size_t i;
+
+       if (NULL == address)
+               return EFI_INVALID_PARAMETER;
+
+       ip_ptr = get_host_ip();
+
+       for (i = 0; i < 4; ++i) {
+               char* end;
+               part = strtoul(ip_ptr, &end, 0);
+               if (end == ip_ptr || (*end != '_' && *end != '\0') || part > 0xff)
+                       return EFI_INVALID_PARAMETER;
+
+               address->Addr[i] = part;
+
+               if (*end == '\0')
+                       break;
+               ip_ptr = end + 1;
+       }
+
+       if (i != 3)
+               return EFI_INVALID_PARAMETER;
+
+       return EFI_SUCCESS;
+}
+
 static void print_tcpip_information(EFI_IPv4_ADDRESS *address)
 {
 #define TCPIP_INFO_FMT L"Fastboot is listening on TCP %d.%d.%d.%d:%d"
@@ -188,6 +219,7 @@ static EFI_STATUS fastboot_tcp_start(start_callback_t start_cb,
 {
 	EFI_STATUS ret;
 	EFI_IPv4_ADDRESS station_address;
+	EFI_IPv4_ADDRESS station_address2;
 
 	start_callback = start_cb;
 	rx_callback = rx_cb;
@@ -199,8 +231,13 @@ static EFI_STATUS fastboot_tcp_start(start_callback_t start_cb,
 	if (EFI_ERROR(ret))
 		return ret;
 
-	print_tcpip_information(&station_address);
+      if (is_running_on_kvm()) {
+            ret = fastboot_get_host_ip(&station_address2);
+            if (ret == EFI_SUCCESS)
+                  station_address = station_address2;
+      }
 
+	print_tcpip_information(&station_address);
 	return EFI_SUCCESS;
 }
 
