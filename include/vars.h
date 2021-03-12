@@ -144,6 +144,7 @@ char *get_property_name(void);
 char *get_property_model(void);
 #endif
 char *get_device_id(void);
+char *get_host_ip(void);
 CHAR16 *boot_state_to_string(UINT8 boot_state);
 #ifndef USER
 EFI_STATUS reprovision_state_vars(VOID);
