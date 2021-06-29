@@ -2824,6 +2824,11 @@ DwcXdciEpClearStall (
   //
   EpNum = DwcXdciGetPhysicalEpNum (EpInfo->EpNum, EpInfo->EpDir);
 
+  if (EpNum >= DWC_XDCI_MAX_ENDPOINTS * 2) {
+    DEBUG ((DEBUG_INFO, "DwcXdciEpClearStall: INVALID EpNum\n"));
+    return EFI_DEVICE_ERROR;
+  }
+
   //
   // Set Ep State Info
   //
