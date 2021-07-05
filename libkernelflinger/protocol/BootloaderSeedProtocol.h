@@ -89,6 +89,8 @@ typedef struct {
  * Get the RPMB key.
  *
  * Kernelflinger will prepare for the data buffer, and BIOS will copy the data to this buffer.
+ * If there are several RPMB partitions, then BIOS only put the RPMB keys to the RPMB partitions used by bootloader,
+ * and set the other RPMB keys to all zero.
  *
  * @num_keys  IN   the entry size of buf, in general is 6 for max RPMB partitions/keys.
  *            OUT  the final output keys number, should <= the input value.
