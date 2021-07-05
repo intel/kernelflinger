@@ -338,6 +338,10 @@ static void cmd_oem_set_storage(INTN argc, CHAR8 **argv)
 			types[total_types++] = STORAGE_NVME;
 			continue;
 		}
+		if (!strcmp(argv[i], (CHAR8 *)"iscsi")) {
+			types[total_types++] = STORAGE_ISCSI;
+			continue;
+		}
 		if (!strcmp(argv[i], (CHAR8 *)"sdcard")) {
 			types[total_types++] = STORAGE_SDCARD;
 			continue;
