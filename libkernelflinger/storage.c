@@ -621,3 +621,9 @@ void set_exclude_device(EFI_HANDLE device)
 	warning(L"Exclude device from installation: %s", dps);
 	FreePool(dps);
 }
+
+EFI_DEVICE_PATH *get_exclude_device(void)
+{
+	return exclude_device;
+}
+

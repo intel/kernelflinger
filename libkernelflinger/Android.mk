@@ -94,6 +94,10 @@ ifeq ($(KERNELFLINGER_DISABLE_DEBUG_PRINT),true)
     LOCAL_CFLAGS += -D__DISABLE_DEBUG_PRINT
 endif
 
+ifeq ($(MULTI_USER_SUPPORT),true)
+    LOCAL_CFLAGS += -DMULTI_USER
+endif
+
 LOCAL_SRC_FILES := \
 	android.c \
 	efilinux.c \
