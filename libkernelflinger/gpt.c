@@ -516,7 +516,7 @@ EFI_STATUS get_dedicated_disk(struct gpt_partition_interface *gpart)
 	debug(L"dedicated data parition blocks: 0x%X", gpart->part.ending_lba + 1);
 	return EFI_SUCCESS;
 }
-#endif
+#endif /* MULTI_USER  */
 
 EFI_STATUS gpt_get_partition_by_label(const CHAR16 *label,
 				      struct gpt_partition_interface *gpart,
@@ -539,7 +539,7 @@ EFI_STATUS gpt_get_partition_by_label(const CHAR16 *label,
 			return EFI_SUCCESS;
 		}
 	}
-	#endif
+	#endif /* MULTI_USER  */
 
 	ret = gpt_cache_partition(log_unit);
 	if (EFI_ERROR(ret))
