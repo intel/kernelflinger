@@ -190,7 +190,7 @@ static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
 				sessionhandle,
 				&nonceTpm);
 
-	memset(nonceCaller.buffer, 0, DIGEST_SIZE);
+	memset_s(nonceCaller.buffer, DIGEST_SIZE, 0, DIGEST_SIZE);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"StartAuthSession failed");
 		return ret;
@@ -343,7 +343,7 @@ EFI_STATUS tpm2_write_nvindex(TPMI_RH_NV_INDEX nv_index,
 		efi_perror(ret, L"%a - FlushContext failed", __func__);
 
 out:
-	memset(&nv_write_data, 0, sizeof(nv_write_data));
+	memset_s(&nv_write_data, sizeof(nv_write_data), 0, sizeof(nv_write_data));
 	return ret;
 }
 
@@ -416,7 +416,7 @@ EFI_STATUS tpm2_read_nvindex(TPMI_RH_NV_INDEX nv_index,
 		read_size += nv_read_data.size;
 	}
 	*data_size = read_size;
-	memset(&nv_read_data, 0, sizeof(nv_read_data));
+	memset_s(&nv_read_data, sizeof(nv_read_data), 0, sizeof(nv_read_data));
 
 	ret = Tpm2FlushContext(session_handle);
 	if (EFI_ERROR(ret)) {
@@ -611,7 +611,7 @@ EFI_STATUS tpm2_fuse_lock_owner(void)
 	debug(L"Success lock TPM owner");
 
 out:
-	memset(owner_auth.buffer, 0, DIGEST_SIZE);
+	memset_s(owner_auth.buffer, DIGEST_SIZE, 0, DIGEST_SIZE);
 	return ret;
 }
 
@@ -720,8 +720,8 @@ EFI_STATUS tpm2_fuse_trusty_seed(void)
 out:
 	// Always clear the memory
 	// Maybe be optimized?
-	memset(trusty_seed.buffer, 0, TRUSTY_SEED_SIZE);
-	memset(read_seed, 0, TRUSTY_SEED_SIZE);
+	memset_s(trusty_seed.buffer, TRUSTY_SEED_SIZE, 0, TRUSTY_SEED_SIZE);
+	memset_s(read_seed, TRUSTY_SEED_SIZE, 0, TRUSTY_SEED_SIZE);
 	barrier();
 	return ret;
 }
@@ -738,7 +738,7 @@ static EFI_STATUS extend_pcr7(void)
 	PcrHandle = PCR_7;
 
 	DigestSize = GetHashSizeFromAlgo(Digests.digests[0].hashAlg);
-	memset((UINT8 *)&Digests.digests[0].digest, 0, DigestSize);
+	memset_s((UINT8 *)&Digests.digests[0].digest, DigestSize, 0, DigestSize);
 	ret =  Tpm2PcrExtend(PcrHandle, &Digests);
 	if (EFI_ERROR(ret))
 		efi_perror(ret, L"Extend PCR7 failed");
@@ -774,7 +774,7 @@ EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE])
 	return EFI_SUCCESS;
 
 out:
-	memset(seed, 0, TRUSTY_SEED_SIZE);
+	memset_s(seed, TRUSTY_SEED_SIZE, 0, TRUSTY_SEED_SIZE);
 	barrier();
 	return ret;
 }

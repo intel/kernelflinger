@@ -123,7 +123,7 @@ static EFI_STATUS init_trusty_startup_params(trusty_startup_params_t *param, UIN
 		error(L"relocate tos image failed");
 		return EFI_INVALID_PARAMETER;
 	}
-	memset(param, 0, sizeof(trusty_startup_params_t));
+	memset_s(param, sizeof(trusty_startup_params_t), 0, sizeof(trusty_startup_params_t));
 	param->size_of_this_struct = sizeof(trusty_startup_params_t);
 	param->runtime_addr = boot_param->trusty_mem_base & 0xFFFFFFFF;
 	param->runtime_addr_hi = (boot_param->trusty_mem_base >> 32)  & 0xFFFFFFFF;
@@ -131,7 +131,7 @@ static EFI_STATUS init_trusty_startup_params(trusty_startup_params_t *param, UIN
 	param->entry_point_hi = ((entry_addr + 0x400) >> 32) & 0xFFFFFFFF;
 	param->version = TRUSTY_BOOT_PARAM_VERSION;
 	param->runtime_size = TRUSTY_MEM_SIZE;
-	memset(param->rpmb_key, 0x0, sizeof(param->rpmb_key));
+	memset_s(param->rpmb_key, sizeof(param->rpmb_key), 0x0, sizeof(param->rpmb_key));
 #ifdef RPMB_STORAGE
 	ret = get_rpmb_derived_key(&out_key, &number_derived_key);
 	if (EFI_ERROR(ret)) {
@@ -200,7 +200,8 @@ EFI_STATUS start_trusty(VOID *tosimage)
 
 	ret = launch_trusty_os(&trusty_startup_params);
 #ifdef RPMB_STORAGE
-	memset(trusty_startup_params.rpmb_key, 0, sizeof(trusty_startup_params.rpmb_key));
+	memset_s(trusty_startup_params.rpmb_key, sizeof(trusty_startup_params.rpmb_key), 0,
+            sizeof(trusty_startup_params.rpmb_key));
 #endif
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to launch trusty os");

@@ -144,7 +144,7 @@ EFI_STATUS update_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
                 }
                 CopyMem(rot_data.keyHash256, temp_hash, rot_data.keySize);
         } else {
-                memset(rot_data.keyHash256, 0, SHA256_DIGEST_LENGTH);
+                memset_s(rot_data.keyHash256, SHA256_DIGEST_LENGTH, 0, SHA256_DIGEST_LENGTH);
                 barrier();
         }
         return ret;
@@ -163,7 +163,7 @@ EFI_STATUS init_rot_data(UINT32 boot_state)
     rot_data.keySize = SHA256_DIGEST_LENGTH;
 
     /* TBD: keyHash should be the key which used to sign vbmeta.ias */
-    memset(rot_data.keyHash256, 0, SHA256_DIGEST_LENGTH);
+    memset_s(rot_data.keyHash256, SHA256_DIGEST_LENGTH, 0, SHA256_DIGEST_LENGTH);
 
     return EFI_SUCCESS;
 }

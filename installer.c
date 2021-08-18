@@ -339,7 +339,7 @@ static void installer_split_and_joint_flash(CHAR16 **filename,
 	EFI_FILE *file[num];
 	UINT32 blk_count;
 
-	memset(file, 0, sizeof(file));
+	memset_s(file, sizeof(file), 0, sizeof(file));
 	const UINTN HEADER_SIZE = offsetof(flash_buffer_t, d);
 	const UINTN MAX_DATA_SIZE = dl->max_size - HEADER_SIZE;
 	for (UINTN i = 0; i < num; i++) {
@@ -590,6 +590,10 @@ static void installer_flash_cmd(INTN argc, CHAR8 **argv)
 		fastboot_fail("Flash command requires exactly more then 3 arguments");
 		return;
 	}
+
+	for (int i = 0; i <  num; i++)
+		numname[i] = NULL;
+
 	if (argc > 4) {
 		argc = 2;
 		for (int i = 0; i <  num; i++) {
@@ -689,7 +693,8 @@ exit:
 		FreePool(filename);
 	} else {
 		for (INTN i = 0; i < num; i++)
-			FreePool(numname[i]);
+			if (numname[i])
+				FreePool(numname[i]);
 	}
 }
 

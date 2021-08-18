@@ -41,7 +41,7 @@ void* avb_memcpy(void* dest, const void* src, size_t n) {
 }
 
 void* avb_memset(void* dest, const int c, size_t n) {
-  return memset(dest, c, n);
+  return memset_s(dest, n, c, n);
 }
 
 int avb_strcmp(const char* s1, const char* s2) {

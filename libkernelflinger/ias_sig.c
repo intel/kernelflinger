@@ -93,7 +93,7 @@ EFI_STATUS decode_boot_signature(const unsigned char *data, long size,
 	if (sig->version != IASS_VERSION)
 		return EFI_UNSUPPORTED;
 
-	memset(bs, 0, sizeof(*bs));
+	memset_s(bs, sizeof(*bs), 0, sizeof(*bs));
 
 	switch (sig->digest_algorithm) {
 	case SHA256:

@@ -265,7 +265,7 @@ static EFI_STATUS setup_gdt(void)
         if (EFI_ERROR(ret))
                 return ret;
 
-        memset(gdt->base, 0x0, gdt->limit);
+        memset_s(gdt->base, gdt->limit, 0x0, gdt->limit);
 
         /* According to "Intel IA32/64 Architecture Software
          * Developper Manual"
@@ -1308,7 +1308,7 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
         kernel_start = buf->hdr.pref_address;
         init_size = buf->hdr.init_size;
         buf->hdr.loader_id = 0xFF;
-        memset(&buf->screen_info, 0x0, sizeof(buf->screen_info));
+        memset_s(&buf->screen_info, sizeof(buf->screen_info), 0x0, sizeof(buf->screen_info));
 
         setup_screen_info_from_gop(&buf->screen_info);
 
@@ -1357,7 +1357,7 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
         log_flush_to_var(FALSE);
 
         boot_params = (struct boot_params *)(UINTN)boot_addr;
-        memset(boot_params, 0x0, 16384);
+        memset_s(boot_params, 16384, 0x0, 16384);
 
         /* Save screen_info */
         ret = memcpy_s(&boot_params->screen_info, sizeof(struct screen_info), &buf->screen_info,

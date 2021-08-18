@@ -230,7 +230,7 @@ static VOID acpi_add_table_index(UINTN index, enum acpi_src_type type)
 CHAR8 *acpi_loaded_table_idx_to_string(enum acpi_src_type type)
 {
 	struct ACPI_TABLE_LOADED *tables = &loaded_table[type];
-	memset(loaded_idx_str, 0, sizeof(loaded_idx_str));
+	memset_s(loaded_idx_str, sizeof(loaded_idx_str), 0, sizeof(loaded_idx_str));
 	if (tables->count > 0)
 		efi_snprintf(loaded_idx_str, sizeof(loaded_idx_str),
 			     (CHAR8 *)"%d", tables->index[0]);

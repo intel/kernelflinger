@@ -179,7 +179,7 @@ static EFI_STATUS disable_slot(slot_metadata_t *slot, BOOLEAN store)
 {
 	EFI_STATUS ret;
 
-	memset(slot, 0, sizeof(*slot));
+	memset_s(slot, sizeof(*slot), 0, sizeof(*slot));
 	cur_suffix = NULL;
 
 	if (!store)

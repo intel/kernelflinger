@@ -260,9 +260,9 @@ static void huffman_tree_create_lengths(upng_t* upng, huffman_tree* tree,
 				 numcodes columns) */
 
 	/* initialize local vectors */
-	memset(blcount, 0, sizeof(blcount));
-	memset(nextcode, 0, sizeof(nextcode));
-	memset(tree1d, 0, sizeof(tree1d));
+	memset_s(blcount, sizeof(blcount), 0, sizeof(blcount));
+	memset_s(nextcode, sizeof(nextcode), 0, sizeof(nextcode));
+	memset_s(tree1d, sizeof(tree1d), 0, sizeof(tree1d));
 
 	/* Step 1: count number of instances of each code length */
 	for (bits = 0; bits < tree->numcodes; bits++) {
@@ -394,8 +394,8 @@ static void get_tree_inflate_dynamic(upng_t* upng, huffman_tree* codetree,
 	}
 
 	/* Clear bitlen arrays */
-	memset(bitlen, 0, sizeof(bitlen));
-	memset(bitlenD, 0, sizeof(bitlenD));
+	memset_s(bitlen, sizeof(bitlen), 0, sizeof(bitlen));
+	memset_s(bitlenD, sizeof(bitlenD), 0, sizeof(bitlenD));
 
 	/* The bit pointer is or will go past the memory */
 	/* Number of literal/length codes + 257. Unlike the spec, the
@@ -1315,6 +1315,9 @@ EFI_STATUS upng_load(const char *data, UINTN size,
 		return ret;
 
 	*blt = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)upng.buffer;
+	if (*blt == NULL)
+		return EFI_LOAD_ERROR;
+
 	*width = upng.width;
 	*height = upng.height;
 	for (i = 0; i < *width * *height; i++)

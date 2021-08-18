@@ -1364,6 +1364,33 @@ void *memset(void *s, int c, size_t n)
         return s;
 }
 
+void *memset_s(void *dest, size_t dest_size, int c, size_t count)
+{
+        if (count == 0) {
+                debug(L"<memset_s count is zero");
+                return dest;
+        }
+
+        if (dest == NULL) {
+                error(L"<memset_s dest is NULL");
+                return NULL;
+        }
+
+        if (dest_size > RSIZE_MAX_MEM) {
+                error(L"<memset_s dest_size exceeds max");
+                return NULL;
+        }
+
+        if (dest_size < count) {
+                error(L"<memset_s count exceeds dest_size");
+                return NULL;
+        }
+
+        SetMem(dest, count, (UINT8)c);
+        return dest;
+}
+
+
 void *memcpy(void *dest, const void *source, size_t count)
 {
         CopyMem(dest, source, (UINTN)count);
@@ -1414,6 +1441,43 @@ void *memmove(void *dst, const void *src, size_t n)
         return dst;
 }
 
+void * memmove_s(void * dst, size_t destlen, const void * src, size_t len)
+{
+        size_t offs;
+        ssize_t i;
+
+        if (dst == NULL || src == NULL) {
+                error(L"<memmove_s dst or src is NULL");
+                return NULL;
+        }
+
+        if (destlen > RSIZE_MAX_MEM) {
+                error(L"<memmove_s destlen exceeds max");
+                return NULL;
+        }
+
+        if (destlen < len) {
+                error(L"<memset_s src length exceeds dest length");
+                return NULL;
+        }
+
+        if (src > dst) {
+                EFI_STATUS ret;
+                ret = memcpy_s(dst, len, src, len);
+                return (ret == EFI_SUCCESS) ? (dst) : (NULL);
+        }
+
+        offs = len - (len % sizeof(unsigned long));
+
+        for (i = (len % sizeof(unsigned long)) - 1; i >= 0; i--)
+                ((UINT8 *)dst)[i + offs] = ((UINT8 *)src)[i + offs];
+
+        for (i = len / sizeof(unsigned long) - 1; i >= 0; i--)
+                ((unsigned long *)dst)[i] = ((unsigned long *)src)[i];
+
+        return dst;
+}
+
 void * __memmove_chk(void * dst, const void * src, size_t len, size_t destlen)
     __attribute__((weak));
 void * __memmove_chk(void * dst, const void * src, size_t len, size_t destlen)
@@ -1421,7 +1485,7 @@ void * __memmove_chk(void * dst, const void * src, size_t len, size_t destlen)
         if (destlen < len)
                 panic(L"%a Error: destlen(%d) is less than len(%d)", __func__, destlen, len);
 
-        return memmove(dst, src, len);
+        return memmove_s(dst, destlen, src, len);
 }
 
 static int compare_memory_descriptor(const void *a, const void *b)

@@ -124,7 +124,7 @@ static EFI_STATUS init_trusty_startup_params(trusty_startup_params_t *param, UIN
 		return EFI_INVALID_PARAMETER;
 	}
 
-	memset(param, 0, sizeof(trusty_startup_params_t));
+	memset_s(param, sizeof(trusty_startup_params_t), 0, sizeof(trusty_startup_params_t));
 	param->size_of_this_struct = sizeof(trusty_startup_params_t);
 	param->runtime_addr = boot_param->trusty_mem_base + BARRIER_MEM_SIZE;
 	param->entry_point = entry_addr;

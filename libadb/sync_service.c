@@ -222,7 +222,7 @@ static EFI_STATUS sync_service_stat(asock_t s, sync_ctx_t *ctx, unsigned char *d
 
 	ctx->state = ESTABLISHED;
 
-	memset(&msg, 0, sizeof(msg.stat));
+	memset_s(&msg, sizeof(msg), 0, sizeof(msg.stat));
 	msg.stat.id = ID_STAT;
 
 	ret = sync_service_reader_open(ctx, data, length);

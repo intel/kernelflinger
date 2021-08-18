@@ -289,7 +289,7 @@ EFI_STATUS pae_exit(void)
 		     "andl $0xffffffdf, %eax\n"
 		     "movl %eax, %cr4\n");
 
-	memset(&ctx, 0, sizeof(ctx));
+	memset_s(&ctx, sizeof(ctx), 0, sizeof(ctx));
 
 	return EFI_SUCCESS;
 }

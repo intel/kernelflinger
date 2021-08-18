@@ -71,7 +71,7 @@ static const CHAR16 *VALUE_FORMAT[] = {
 static EFI_STATUS ioport_main(INTN argc, const char **argv)
 {
 	EFI_STATUS ret;
-	UINT64 ioport, data;
+	UINT64 ioport, data = 0;
 
 	if (!(argc == 2 && argv[0][0] == 'i') &&
 	    !(argc == 3 && argv[0][0] == 'o'))

@@ -363,7 +363,7 @@ static EFI_STATUS ip_configuration(UINT32 port, EFI_IPv4_ADDRESS *address)
 		},
 		.ControlOption = NULL
 	};
-	memset((UINT8 *)&ip_data, 0, sizeof(ip_data));
+	memset_s((UINT8 *)&ip_data, sizeof(ip_data), 0, sizeof(ip_data));
 
 	ret = uefi_call_wrapper(tcp_listener->Configure, 2,
 				tcp_listener, &tcp_config);

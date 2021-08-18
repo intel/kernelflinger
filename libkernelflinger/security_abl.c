@@ -120,10 +120,10 @@ EFI_STATUS derive_rpmb_key_with_seed(IN VOID *seed, OUT VOID *rpmb_key)
 	{
 		if (EFI_SUCCESS != derive_rpmb_key_with_seed(dev_sec->seed_list[i].seed, rpmb_key + i * RPMB_KEY_SIZE))
 		{
-			memset(rpmb_key + i * RPMB_KEY_SIZE, 0, RPMB_KEY_SIZE);
+			memset_s(rpmb_key + i * RPMB_KEY_SIZE, RPMB_KEY_SIZE, 0, RPMB_KEY_SIZE);
 			break;
 		}
-		memset(dev_sec->seed_list[i].seed, 0, SECURITY_ABL_SEED_LEN);
+		memset_s(dev_sec->seed_list[i].seed, SECURITY_ABL_SEED_LEN, 0, SECURITY_ABL_SEED_LEN);
 	}
 
 	if (i > 0)

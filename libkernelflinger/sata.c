@@ -172,7 +172,7 @@ static EFI_STATUS ata_dsm_trim(EFI_ATA_PASS_THRU_PROTOCOL *ata,
 		ata_packet.OutTransferLength = count * BLOCK_SIZE;
 		acb.AtaSectorCount = count;
 
-		memset(&asb, 0, sizeof(asb));
+		memset_s(&asb, sizeof(asb), 0, sizeof(asb));
 		ret = uefi_call_wrapper(ata->PassThru, 5, ata,
 					sata_dp->HBAPortNumber,
 					sata_dp->PortMultiplierPortNumber,

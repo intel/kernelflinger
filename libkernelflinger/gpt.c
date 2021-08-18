@@ -476,7 +476,7 @@ EFI_STATUS get_dedicated_disk(struct gpt_partition_interface *gpart)
 
 	gpart->bio = NULL;
 	gpart->handle = 0;
-	memset(&gpart->part, 0, sizeof(gpart->part));
+	memset_s(&gpart->part, sizeof(gpart->part), 0, sizeof(gpart->part));
 	for (i = 0; i < nb_handle; i++) {
 		device = DevicePathFromHandle(handles[i]);
 		if (device == NULL)
@@ -831,7 +831,7 @@ EFI_STATUS gpt_create(struct gpt_header *gh, UINTN gh_size,
 			return EFI_INVALID_PARAMETER;
 		}
 
-		memset(sdisk.partitions, 0, sizeof(sdisk.partitions));
+		memset_s(sdisk.partitions, sizeof(sdisk.partitions), 0, sizeof(sdisk.partitions));
 		gpt_fill_entries(part_count, gbp, sdisk.partitions);
 		goto out;
 	}

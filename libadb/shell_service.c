@@ -74,6 +74,8 @@ static shcmd_t *SHCMD[] = {
 
 static void free_shell_ctx(shell_ctx_t *ctx)
 {
+	if (!ctx)
+		return;
 	if (ctx->arg)
 		FreePool(ctx->arg);
 	if (ctx->buf)
@@ -324,7 +326,7 @@ void ss_hexdump(unsigned char *buf, UINTN length,
 	UINTN col;
 
 	addr_fmt = get_address_format(address + length);
-	memset(ascii, '.', sizeof(ascii) - 1);
+	memset_s(ascii, sizeof(ascii) - 1, '.', sizeof(ascii) - 1);
 	end = (char *)(UINTN)(buf + length);
 	for (col = 0, cur = (char *)(UINTN)buf;
 	     cur != end;
@@ -342,7 +344,7 @@ void ss_hexdump(unsigned char *buf, UINTN length,
 		if (col == PRINT_SIZE - 1) {
 			if (canonical) {
 				ss_printf(L"  |%a|", ascii);
-				memset(ascii, '.', sizeof(ascii) - 1);
+				memset_s(ascii, sizeof(ascii) - 1, '.', sizeof(ascii) - 1);
 			}
 			ss_printf(L"\n");
 		}

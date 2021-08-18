@@ -282,7 +282,7 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
                 goto cleanup;
         }
         startup_info_v2 = (struct tos_startup_info_v2 *)(UINTN)startup_info_phy_addr;
-        memset(startup_info_v2, 0, sizeof(*startup_info_v2));
+        memset_s(startup_info_v2, sizeof(*startup_info_v2), 0, sizeof(*startup_info_v2));
 
         debug(L"TOS Loadtime memory address = 0x%x", load_base);
 

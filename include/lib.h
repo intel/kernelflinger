@@ -63,6 +63,7 @@ typedef INTN ssize_t;
 
 #define ULONG_MAX ((unsigned long)-1)
 #define ULLONG_MAX ((unsigned long long)-1)
+#define RSIZE_MAX_MEM      ( 256UL << 20 )     /* 256MB */
 
 #define panic(x, ...) do { \
     error(x, ##__VA_ARGS__); \
@@ -194,6 +195,9 @@ EFI_STATUS memcpy_s(void *dest, size_t dest_size, const void *source, size_t cou
 void *memmove(void *dst, const void *src, size_t n)
     __attribute__((weak));
 
+void *memmove_s(void * dst, size_t destlen, const void * src, size_t len)
+    __attribute__((weak));
+
 unsigned long long strtoull(const char *nptr, char **endptr, int base)
     __attribute__((weak));
 
@@ -236,6 +240,9 @@ VOID pause(UINTN seconds);
 VOID reboot(CHAR16 *target, EFI_RESET_TYPE type) __attribute__ ((noreturn));
 
 void *memset(void *s, int c, size_t n)
+    __attribute__((weak));
+
+void *memset_s(void *dest, size_t dest_size, int c, size_t count)
     __attribute__((weak));
 
 int memcmp(const void *s1, const void *s2, size_t n)

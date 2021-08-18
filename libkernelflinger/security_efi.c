@@ -152,7 +152,7 @@ static UINT32 bls_get_max_svn_index(BOOTLOADER_SEED_INFO_LIST *blist)
 	/* if no seed found, use dummy seed for userdebug build */
 	if (blist->NumOfSeeds == 0) {
 		debug(L"No seed found, use dummy seed");
-		memset(blist, 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
+		memset_s(blist, sizeof(BOOTLOADER_SEED_INFO_LIST), 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
 		return 0;
 	}
 #endif
@@ -175,7 +175,7 @@ static EFI_STATUS bls_get_seed(VOID *seed)
 	BOOTLOADER_SEED_INFO_LIST blist;
 	INT32 max_svn_idx;
 
-	memset(&blist, 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
+	memset_s(&blist, sizeof(BOOTLOADER_SEED_INFO_LIST), 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
 
 	ret = bls_get_seed_list(&blist);
 	if (EFI_ERROR(ret)) {
@@ -186,7 +186,7 @@ static EFI_STATUS bls_get_seed(VOID *seed)
 	max_svn_idx = bls_get_max_svn_index(&blist);
 	if (max_svn_idx < 0) {
 		error(L"get max svn idx error");
-		memset(&blist, 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
+		memset_s(&blist, sizeof(BOOTLOADER_SEED_INFO_LIST), 0, sizeof(BOOTLOADER_SEED_INFO_LIST));
 		barrier();
 		return EFI_NOT_FOUND;
 	}
@@ -223,7 +223,7 @@ EFI_STATUS get_seed(OUT VOID *seed)
 	if (!seed)
 		return EFI_INVALID_PARAMETER;
 
-	memset(seed, 0, SECURITY_EFI_TRUSTY_SEED_LEN);
+	memset_s(seed, SECURITY_EFI_TRUSTY_SEED_LEN, 0, SECURITY_EFI_TRUSTY_SEED_LEN);
 
 #ifdef USE_TPM
 	ret = tpm2_get_seed(seed);

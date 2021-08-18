@@ -261,8 +261,8 @@ elf64_load_executable(module_file_info_t *file_info, uint64_t *p_entry)
 
 		if (filesz < memsz) {
 			/* zero BSS if exists */
-			memset((void *)(UINTN)(uint64_t)(addr + filesz +
-						    relocation_offset), 0,
+			memset_s((void *)(UINTN)(uint64_t)(addr + filesz +
+						    relocation_offset), (uint64_t)(memsz - filesz), 0,
 				(uint64_t)(memsz - filesz));
 		}
 	}

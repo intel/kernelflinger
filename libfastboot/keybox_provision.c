@@ -86,7 +86,7 @@ EFI_STATUS flash_keybox(VOID *data, UINTN size)
 	}
 
 exit:
-	memset(data, 0, size);
+	memset_s(data, size, 0, size);
 	barrier();
 	return ret;
 }

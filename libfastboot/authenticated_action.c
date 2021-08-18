@@ -63,7 +63,7 @@ static const action_t ACTIONS[] = {
 static void clear_nonce(void)
 {
 	expiration_ctime = 0;
-	memset(current_nonce, 0, sizeof(current_nonce));
+	memset_s(current_nonce, sizeof(current_nonce), 0, sizeof(current_nonce));
 }
 
 char *authenticated_action_new_nonce(char *action_name)
@@ -201,13 +201,13 @@ EFI_STATUS authenticated_action(void *data, UINTN size)
 		return EFI_INVALID_PARAMETER;
 
 	if (nonce_is_expired()) {
-		memset(data, 0, size);
+		memset_s(data, size, 0, size);
 		return EFI_TIMEOUT;
 	}
 
 	ret = verify_token(data, size);
 	clear_nonce();
-	memset(data, 0, size);
+	memset_s(data, size, 0, size);
 	if (EFI_ERROR(ret))
 		return ret;
 

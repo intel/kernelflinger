@@ -155,7 +155,7 @@ void * __memset_chk(void* dest, int c, size_t n, size_t dest_len)
 	if (dest_len < n)
 		panic(L"%a Error: dest_len(%d) is less than n(%d)", __func__, dest_len, n);
 
-	return memset(dest, c, n);
+	return memset_s(dest, n, c, n);
 }
 
 char *fgets(char * dest, int size, FILE* stream)
@@ -268,9 +268,9 @@ int vfprintf(FILE *stream, const char *format, va_list arg)
 	return 0;
 }
 
-int vsnprintf(char *str, size_t size, const char *format, va_list ap)
+int vsnprintf_s(char *str, size_t size, const char *format, va_list ap)
 	__attribute__((weak));
-int vsnprintf(char *str, size_t size, const char *format, va_list ap)
+int vsnprintf_s(char *str, size_t size, const char *format, va_list ap)
 {
 	char *efi_format;
 	size_t i;
@@ -304,7 +304,7 @@ int __vsnprintf_chk(char *str, size_t size, int flags, size_t slen,
 	if (slen < size)
 		panic(L"%a Error: slen(%d) is less than size(%d)", __func__, slen, size);
 
-	return vsnprintf(str, size, format, ap);
+	return vsnprintf_s(str, size, format, ap);
 }
 void abort(void)
 {

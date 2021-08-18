@@ -93,7 +93,7 @@ BOOLEAN heci_is_eop_received(void)
 		return FALSE;
 	}
 	debug(L"GetSeCMode successful");
-	memset(DataBuffer, 0, sizeof(DataBuffer));
+	memset_s(DataBuffer, sizeof(DataBuffer), 0, sizeof(DataBuffer));
 	GetEopStatus = (GEN_END_OF_POST*)DataBuffer;
 	GetEopStatus->MKHIHeader.Fields.GroupId = EOP_GROUP_ID;
 	GetEopStatus->MKHIHeader.Fields.Command = EOP_GET_STATUS_ID;
@@ -137,7 +137,7 @@ EFI_STATUS heci_end_of_post(void)
 	}
 	debug(L"GetSeCMode successful");
 
-	memset(DataBuffer, 0, sizeof(DataBuffer));
+	memset_s(DataBuffer, sizeof(DataBuffer), 0, sizeof(DataBuffer));
 
 	SendEOP = (GEN_END_OF_POST*)DataBuffer;
 	SendEOP->MKHIHeader.Fields.GroupId = EOP_GROUP_ID;

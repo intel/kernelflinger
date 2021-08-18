@@ -477,7 +477,7 @@ EFI_STATUS uefi_bios_update_capsule(EFI_HANDLE root_dir, CHAR16 *name)
 		ret = EFI_OUT_OF_RESOURCES;
 		goto out;
 	}
-	memset((CHAR8 *)scatterList, 0x0,
+	memset_s((CHAR8 *)scatterList, 2 * sizeof(EFI_CAPSULE_BLOCK_DESCRIPTOR), 0x0,
 			2 * sizeof(EFI_CAPSULE_BLOCK_DESCRIPTOR));
 	scatterList->Length = len;
 	scatterList->Union.DataBlock = (EFI_PHYSICAL_ADDRESS) (UINTN) capHeader;

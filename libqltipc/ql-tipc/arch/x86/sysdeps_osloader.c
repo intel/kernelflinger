@@ -82,7 +82,7 @@ void *trusty_memcpy(void *dest, const void *src, size_t n)
 
 void *trusty_memset(void *dest, const int c, size_t n)
 {
-    return memset(dest, c, n);
+    return memset_s(dest, n, c, n);
 }
 
 char *trusty_strcpy(char *dest, const char *src)

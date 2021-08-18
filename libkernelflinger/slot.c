@@ -210,7 +210,7 @@ static EFI_STATUS disable_slot(slot_metadata_t *slot, BOOLEAN store)
 {
 	EFI_STATUS ret;
 
-	memset(slot, 0, sizeof(*slot));
+	memset_s(slot, sizeof(*slot), 0, sizeof(*slot));
 	cur_suffix = NULL;
 
 	if (!store)
@@ -502,7 +502,7 @@ EFI_STATUS slot_reset(void)
 		/* Current partition scheme does not have BOOT
 		 * partition with slots. Disable slot management. */
 		is_used = FALSE;
-		memset(&boot_ctrl, 0, sizeof(boot_ctrl));
+		memset_s(&boot_ctrl, sizeof(boot_ctrl), 0, sizeof(boot_ctrl));
 		ret = write_boot_ctrl();
 		/* If the SLOT_STORAGE_PART does not exist anymore
 		   there is no need to clear the slot A/B data from
@@ -517,7 +517,7 @@ EFI_STATUS slot_reset(void)
 		return EFI_UNSUPPORTED;
 	}
 
-	memset(&boot_ctrl, 0, sizeof(boot_ctrl));
+	memset_s(&boot_ctrl, sizeof(boot_ctrl), 0, sizeof(boot_ctrl));
 	boot_ctrl.magic = BOOT_CTRL_MAGIC;
 	boot_ctrl.version_major = BOOT_CTRL_VERSION;
 	boot_ctrl.nb_slot = nb_slot;
