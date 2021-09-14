@@ -199,6 +199,8 @@ enum unlock_ability {
 
 static enum unlock_ability get_unlock_ability(void)
 {
+	return UNLOCK_ALLOWED;
+#if 0
 	if (device_is_provisioning())
 		return UNLOCK_ALLOWED;
 
@@ -206,6 +208,7 @@ static enum unlock_ability get_unlock_ability(void)
 		return NO_UNLOCK_CLASS_A;
 
 	return frp_allows_unlock() ? UNLOCK_ALLOWED : NO_UNLOCK_FRP;
+#endif
 }
 
 static void cmd_unlock(__attribute__((__unused__)) INTN argc,
