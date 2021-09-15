@@ -431,7 +431,7 @@ static inline EFI_STATUS handover_jump(EFI_HANDLE image,
         EFI_STATUS ret = EFI_LOAD_ERROR;
         UINTN map_key, i;
 
-        log(L"handover jump ...\n");
+        logs(L"handover jump to kernel ...\n");
 
         ret = setup_gdt();
         if (EFI_ERROR(ret)) {
@@ -780,7 +780,7 @@ static CHAR16 *get_boot_reason(void)
         /* in case of an OS initiated reboot => get reason from efi var */
         bootreason = get_reboot_reason();
         if (!bootreason) {
-                error(L"Error while trying to read the reboot reason");
+                error(L"Not find reboot reason, set bootreason to unknown");
                 bootreason = L"unknown";
                 goto done;
         }
