@@ -386,6 +386,7 @@ static EFI_STATUS adb_tcp_start(start_callback_t start_cb,
 }
 
 static transport_t ADB_TRANSPORT[] = {
+#ifndef KERNELFLINGER_XDCI_DISABLED
 	{
 		.name = "USB for adb",
 		.start = adb_usb_start,
@@ -394,6 +395,7 @@ static transport_t ADB_TRANSPORT[] = {
 		.read = usb_read,
 		.write = usb_write
 	},
+#endif
 	{
 		.name = "TCP for adb",
 		.start = adb_tcp_start,

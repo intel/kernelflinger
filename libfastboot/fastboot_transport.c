@@ -250,6 +250,7 @@ EFI_STATUS fastboot_tcp_read(void *buf, UINT32 size)
 
 /* Transport */
 static transport_t FASTBOOT_TRANSPORT[] = {
+#ifndef KERNELFLINGER_XDCI_DISABLED
 	{
 		.name = "USB for fastboot",
 		.start = fastboot_usb_start,
@@ -258,6 +259,7 @@ static transport_t FASTBOOT_TRANSPORT[] = {
 		.read = fastboot_usb_read,
 		.write = usb_write
 	},
+#endif
 	{
 		.name = "TCP for fastboot",
 		.start = fastboot_tcp_start,
