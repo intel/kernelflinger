@@ -38,5 +38,6 @@ const char *info_baseband_version(void);
 const char *info_variant(void);
 const char *info_product(void);
 const char *info_hw_revision(void);
+const char *info_cpu_abi(void);
 
 #endif	/* __INFO_H__ */
