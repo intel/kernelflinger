@@ -1119,17 +1119,27 @@ static EFI_STATUS setup_command_line(
         PCI_DEVICE_PATH *boot_device = get_boot_device();
         if (boot_device) {
                 CHAR16 *diskbus = NULL;
+                enum storage_type storage_type;
 #ifdef AUTO_DISKBUS
                 diskbus = PoolPrint(L"%02x.%x", boot_device->Device, boot_device->Function);
 #else
                 diskbus = PoolPrint(L"%a", (CHAR8 *)PREDEF_DISK_BUS);
 #endif
                 StrToLower(diskbus);
-                ret = prepend_command_line(&cmdline16,
-                                           (aosp_header->header_version < 2)
-                                           ? L"androidboot.diskbus=%s"
-                                           : L"androidboot.boot_devices=pci0000:00/0000:00:%s",
-                                           diskbus);
+
+                get_boot_device_type(&storage_type);
+                if (aosp_header->header_version < 2)
+                    ret = prepend_command_line(&cmdline16,
+                                        L"androidboot.diskbus=%s",
+                                        diskbus);
+                else
+                if (storage_type == STORAGE_ISCSI)
+                    ret = prepend_command_line(&cmdline16,
+                                   L"androidboot.boot_devices=scsi_disk/0:0:0:0");
+                else
+                    ret = prepend_command_line(&cmdline16,
+                                   L"androidboot.boot_devices=pci0000:00/0000:00:%s",
+                                   diskbus);
                 FreePool(diskbus);
                 if (EFI_ERROR(ret))
                         goto out;

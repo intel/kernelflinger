@@ -43,6 +43,7 @@ enum storage_type {
 	STORAGE_SATA,
 	STORAGE_NVME,
 	STORAGE_VIRTUAL,
+	STORAGE_ISCSI,
 #ifdef USB_STORAGE
 	STORAGE_USB,
 #endif
@@ -94,5 +95,7 @@ EFI_STATUS set_logical_unit(UINT64 user_lun, UINT64 factory_lun);
 void print_progress(EFI_LBA done, EFI_LBA total, uint32_t sec, uint32_t *prev_sec, uint32_t *prev);
 void set_exclude_device(EFI_HANDLE device);
 EFI_DEVICE_PATH *get_exclude_device(void);
+
+SCSI_DEVICE_PATH *get_scsi_device_path(EFI_DEVICE_PATH *p);
 
 #endif	/* _STORAGE_H_ */

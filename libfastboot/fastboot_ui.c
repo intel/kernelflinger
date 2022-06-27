@@ -275,7 +275,7 @@ EFI_STATUS fastboot_ui_init(void)
 
 	/* Use large enough margin to not overlap ui_print/ui_error
 	 * area. */
-	margin = swidth * 12 / 100;
+	margin = swidth * 4 / 100;
 	ret = EFI_UNSUPPORTED;
 
 	droid = ui_image_get(DROID_IMG_NAME);

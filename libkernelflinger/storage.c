@@ -40,6 +40,7 @@
 
 static struct storage *cur_storage;
 static PCI_DEVICE_PATH boot_device = { .Function = -1, .Device = -1 };
+static SCSI_DEVICE_PATH boot_device_scsi = { .Pun = -1, .Lun = -1 };
 static enum storage_type boot_device_type;
 static BOOLEAN initialized = FALSE;
 static EFI_DEVICE_PATH *exclude_device = NULL;
@@ -52,10 +53,18 @@ static BOOLEAN is_boot_device(EFI_DEVICE_PATH *p)
 {
 	PCI_DEVICE_PATH *pci;
 
-	if (boot_device.Header.Type == 0)
+	if (boot_device.Header.Type == 0 && boot_device_scsi.Header.Type == 0)
 		return FALSE;
 
 	pci = get_pci_device_path(p);
+	if (pci == NULL) {
+		SCSI_DEVICE_PATH *scsi =  get_scsi_device_path(p);
+
+		if (scsi == NULL)
+			return 0;
+
+		return scsi->Pun == boot_device_scsi.Pun && scsi->Lun == boot_device_scsi.Lun;
+	}
 
 	return pci && pci->Function == boot_device.Function
 		&& pci->Device == boot_device.Device;
@@ -66,6 +75,7 @@ extern struct storage STORAGE(STORAGE_UFS);
 extern struct storage STORAGE(STORAGE_SDCARD);
 extern struct storage STORAGE(STORAGE_SATA);
 extern struct storage STORAGE(STORAGE_NVME);
+extern struct storage STORAGE(STORAGE_ISCSI);
 extern struct storage STORAGE(STORAGE_VIRTUAL);
 #ifdef USB_STORAGE
 extern struct storage STORAGE(STORAGE_USB);
@@ -86,6 +96,7 @@ static EFI_STATUS identify_storage(EFI_DEVICE_PATH *device_path,
 		, &STORAGE(STORAGE_SATA)
 		, &STORAGE(STORAGE_NVME)
 		, &STORAGE(STORAGE_VIRTUAL)
+		, &STORAGE(STORAGE_ISCSI)
 #ifdef USB_STORAGE
 		, &STORAGE(STORAGE_USB)
 #endif
@@ -142,6 +153,92 @@ BOOLEAN is_same_device(EFI_DEVICE_PATH *p, EFI_DEVICE_PATH *e)
 
 	return TRUE;
 }
+
+EFI_STATUS identify_scsi_boot_device(enum storage_type filter)
+{
+	EFI_STATUS ret;
+	EFI_HANDLE *handles;
+	UINTN nb_handle = 0;
+	UINTN i;
+	EFI_DEVICE_PATH *device_path;
+	SCSI_DEVICE_PATH *scsi = NULL;
+	struct storage *storage;
+	enum storage_type type;
+	EFI_HANDLE new_boot_device_handle = NULL;
+	SCSI_DEVICE_PATH new_boot_device = { .Pun = -1, .Lun = -1 };
+	enum storage_type new_boot_device_type;
+	struct storage *new_storage;
+
+	new_storage = NULL;
+	ret = uefi_call_wrapper(BS->LocateHandleBuffer, 5, ByProtocol,
+				&BlockIoProtocol, NULL, &nb_handle, &handles);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to locate Block IO Protocol");
+		return ret;
+	}
+
+	new_boot_device.Header.Type = 0;
+	for (i = 0; i < nb_handle; i++) {
+		device_path = DevicePathFromHandle(handles[i]);
+		if (!device_path)
+			continue;
+
+		scsi = get_scsi_device_path(device_path);
+		if (!scsi)
+			continue;
+
+		if (is_same_device(device_path, exclude_device))
+			continue;
+
+		if (new_boot_device.Pun == scsi->Pun &&
+				new_boot_device.Lun == scsi->Lun &&
+				new_boot_device.Header.Type == scsi->Header.Type &&
+				new_boot_device.Header.SubType == scsi->Header.SubType)
+			continue;
+
+		ret = identify_storage(device_path, filter, &storage, &type);
+		if (EFI_ERROR(ret))
+			continue;
+
+		if (!new_boot_device.Header.Type || new_boot_device_type >= type) {
+				ret = memcpy_s(&new_boot_device, sizeof(new_boot_device), scsi,
+							   sizeof(new_boot_device));
+				if (EFI_ERROR(ret)) {
+						FreePool(handles);
+						return ret;
+				}
+				new_boot_device_type = type;
+				new_storage = storage;
+				new_boot_device_handle = handles[i];
+			continue;
+		}
+
+		if (new_boot_device_type == type &&
+				type != STORAGE_GENERAL_BLOCK &&
+				filter > type) {
+			error(L"Multiple identifcal storage found! Can't make a decision");
+			new_storage = NULL;
+			new_boot_device.Header.Type = 0;
+			FreePool(handles);
+			return EFI_UNSUPPORTED;
+		}
+	}
+
+	FreePool(handles);
+
+	if (!new_storage) {
+		error(L"No SCSI storage found for type %d", filter);
+		return EFI_UNSUPPORTED;
+	}
+	cur_storage = new_storage;
+	boot_device_type = new_boot_device_type;
+	boot_device_handle = new_boot_device_handle;
+	boot_device_scsi = new_boot_device;
+
+	debug(L"%s storage selected", cur_storage->name);
+	return EFI_SUCCESS;
+}
+
 
 EFI_STATUS identify_boot_device(enum storage_type filter)
 {
@@ -216,8 +313,7 @@ EFI_STATUS identify_boot_device(enum storage_type filter)
 	FreePool(handles);
 
 	if (!new_storage) {
-		error(L"No PCI storage found for type %d", filter);
-		return EFI_UNSUPPORTED;
+		return identify_scsi_boot_device(filter);
 	}
 	cur_storage = new_storage;
 	boot_device_type = new_boot_device_type;
@@ -236,7 +332,8 @@ static BOOLEAN valid_storage(void)
 		initialized = TRUE;
 		return !EFI_ERROR(identify_boot_device(STORAGE_ALL));
 	}
-	return boot_device.Header.Type && cur_storage;
+
+	return (boot_device.Header.Type || boot_device_scsi.Header.Type) && cur_storage;
 }
 
 static EFI_STATUS media_erase_blocks(EFI_HANDLE handle, EFI_BLOCK_IO *bio, EFI_LBA start, EFI_LBA end)
@@ -311,6 +408,7 @@ EFI_STATUS storage_check_logical_unit(EFI_DEVICE_PATH *p, logical_unit_t log_uni
 {
 	if (!valid_storage())
 		return EFI_UNSUPPORTED;
+
 	if (!is_boot_device(p))
 		return EFI_UNSUPPORTED;
 
@@ -394,8 +492,8 @@ EFI_STATUS fill_zero(EFI_BLOCK_IO *bio, EFI_LBA start, EFI_LBA end)
 EFI_STATUS storage_set_boot_device(EFI_HANDLE device)
 {
 	EFI_DEVICE_PATH *device_path  = DevicePathFromHandle(device);
-	PCI_DEVICE_PATH *pci;
 	EFI_STATUS ret;
+	PCI_DEVICE_PATH *pci;
 	CHAR16 *dps;
 
 	if (!device_path) {
@@ -403,18 +501,27 @@ EFI_STATUS storage_set_boot_device(EFI_HANDLE device)
 		return EFI_UNSUPPORTED;
 	}
 
-	pci = get_pci_device_path(device_path);
-	if (!pci) {
-		error(L"Boot device is not PCI, unsupported");
-		return EFI_UNSUPPORTED;
-	}
-
-	ret = identify_storage(device_path, STORAGE_ALL, &cur_storage,
-			       &boot_device_type);
+	ret = identify_storage(device_path, STORAGE_ALL, &cur_storage, &boot_device_type);
 	if (EFI_ERROR(ret)) {
 		error(L"Boot device unsupported");
 		return ret;
 	}
+
+	pci = get_pci_device_path(device_path);
+	if (!pci) {
+		SCSI_DEVICE_PATH *scsi = get_scsi_device_path(device_path);
+		if (scsi == NULL) {
+			error(L"Only PCI/SCSI boot device is supported");
+			return EFI_UNSUPPORTED;
+		}
+
+		error(L"Setting boot device to: SCSI");
+		initialized = TRUE;
+		boot_device_scsi = *scsi;
+		boot_device_handle = device;
+		return EFI_SUCCESS;
+	}
+
 	dps = DevicePathToStr((EFI_DEVICE_PATH *)pci);
 	debug(L"Setting PCI boot device to: %s", dps);
 	FreePool(dps);
@@ -423,7 +530,6 @@ EFI_STATUS storage_set_boot_device(EFI_HANDLE device)
 	ret = memcpy_s(&boot_device, sizeof(boot_device), pci, sizeof(boot_device));
 	if (EFI_ERROR(ret))
 		return ret;
-
 	boot_device_handle = device;
 	return EFI_SUCCESS;
 }
@@ -470,6 +576,9 @@ PCI_DEVICE_PATH *get_boot_device(void)
 		else
 			initialized = TRUE;
 	}
+
+	if (boot_device_scsi.Header.Type)
+		return (PCI_DEVICE_PATH *)&boot_device_scsi;
 	return boot_device.Header.Type == 0 ? NULL : &boot_device;
 }
 
