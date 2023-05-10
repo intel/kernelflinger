@@ -68,7 +68,6 @@ LOCAL_STATIC_LIBRARIES := \
 	libkernelflinger-$(TARGET_BUILD_VARIANT)
 
 ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
-    LOCAL_CFLAGS += -DUSE_UI
 endif
 
 LOCAL_SRC_FILES := \
