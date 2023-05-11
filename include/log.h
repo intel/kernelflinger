@@ -133,8 +133,23 @@ void vlog(const CHAR16 *fmt, va_list args);
     Print(x "\n", ##__VA_ARGS__); \
   log_flush_to_var(TRUE); \
 } while(0)
+
+#define logs(x, ...) do { \
+  log(x "\n", ##__VA_ARGS__); \
+  if (ui_is_ready()) { \
+    ui_print(x, ##__VA_ARGS__); \
+  } else \
+    Print(x "\n", ##__VA_ARGS__); \
+  log_flush_to_var(TRUE); \
+} while(0)
+
 #else
 #define error(x, ...) do { \
+  log(x "\n", ##__VA_ARGS__); \
+  log_flush_to_var(TRUE); \
+} while(0)
+
+#define logs(x, ...) do { \
   log(x "\n", ##__VA_ARGS__); \
   log_flush_to_var(TRUE); \
 } while(0)
