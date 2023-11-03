@@ -36,4 +36,6 @@
 
 EFI_STATUS load_tos_image(OUT VOID **bootimage);
 
+VOID trusty_late_init(VOID);
+
 #endif /* _TRUSTY_COMMON_H_ */
