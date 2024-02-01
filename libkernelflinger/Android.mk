@@ -127,6 +127,7 @@ LOCAL_SRC_FILES := \
 	qsort.c \
 	timer.c \
 	nvme.c \
+	ivshmem.c \
 	virtual_media.c \
 	general_block.c \
 	aes_gcm.c \
@@ -257,6 +258,7 @@ LOCAL_C_INCLUDES := $(KERNELFLINGER_LOCAL_PATH)/include \
 		$(res_intermediates)
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libxbc
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_ab
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../avb/libavb_user

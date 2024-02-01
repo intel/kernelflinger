@@ -32,7 +32,6 @@
 #include <efiapi.h>
 #include <efilib.h>
 #include "security_interface.h"
-#include "rpmb_storage.h"
 #include "life_cycle.h"
 #include "security.h"
 
@@ -162,7 +161,7 @@ EFI_STATUS set_device_security_info(IN VOID * sbl_cmdline_seed_rpmb)
 
 EFI_STATUS set_device_security_info(__attribute__((unused)) IN VOID * security_data)
 {
-	return EFI_UNSUPPORTED;
+	return EFI_SUCCESS;
 }
 #endif
 

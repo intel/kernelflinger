@@ -78,6 +78,10 @@ __RDTSC (void)
 	return (uint64_t) hi << 32 | lo;
 }
 
+uint64_t rdtsc(void) {
+	return __RDTSC();
+}
+
 uint32_t get_cpu_freq(void)
 {
 	uint32_t cpu_freq;

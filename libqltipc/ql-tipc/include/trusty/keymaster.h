@@ -65,6 +65,50 @@ int trusty_set_boot_params(uint32_t os_version, uint32_t os_patchlevel,
                            uint32_t verified_boot_hash_size);
 
 /*
+ * Config Keymaster boot patchlevel. Returns one of trusty_err.
+ *
+ * @boot_patchlevel: Boot patch level from Android image header
+ */
+int trusty_config_boot_patchlevel(uint32_t boot_patchlevel);
+
+/*
+ * Set Keymaster attestation ids. Returns one of trusty_err.
+ *
+ * @brand: brand from vendor boot header
+ * @brand_size: size of brand
+ * @device: device from vendor boot header
+ * @device_size: size of device
+ * @product: name from vendor boot header
+ * @product_size: size of name
+ * @serial: serial number from DMI
+ * @serial_size: size of serial
+ * @imei: imei information
+ * @imei_size: size of imei
+ * @meid: meid information
+ * @meid_size: size of meid
+ * @manufacturer: manufacturer from vendor boot header
+ * @manufacturer_size: size of manufacturer
+ * @model: model from vendor boot header
+ * @model_size: size of model
+ */
+int trusty_set_attestation_ids(const uint8_t *brand,
+                               uint32_t brand_size,
+                               const uint8_t *device,
+                               uint32_t device_size,
+                               const uint8_t *product,
+                               uint32_t product_size,
+                               const uint8_t *serial,
+                               uint32_t serial_size,
+                               const uint8_t *imei,
+                               uint32_t imei_size,
+                               const uint8_t *meid,
+                               uint32_t meid_size,
+                               const uint8_t *manufacturer,
+                               uint32_t manufacturer_size,
+                               const uint8_t *model,
+                               uint32_t model_size);
+
+/*
  * Set Keymaster attestation key. Returns one of trusty_err.
  *
  * @key: buffer containing key

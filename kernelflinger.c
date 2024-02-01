@@ -72,6 +72,9 @@
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
+#ifdef USE_IVSHMEM
+#include "ivshmem.h"
+#endif
 
 /* Ensure this is embedded in the EFI binary somewhere */
 static const CHAR16 __attribute__((used)) magic[] = L"### kernelflinger ###";
@@ -591,10 +594,12 @@ static enum boot_target choose_boot_target(CHAR16 **target_path, BOOLEAN *onesho
 	if (ret != NORMAL_BOOT)
 		goto out;
 
+#ifndef USE_SBL
 	debug(L"Bootlogic: Check battery insertion...");
 	ret = check_battery_inserted();
 	if (ret != NORMAL_BOOT)
 		goto out;
+#endif
 
 	debug(L"Bootlogic: Check BCB...");
 	ret = check_bcb(target_path, oneshot);
@@ -618,6 +623,7 @@ static enum boot_target choose_boot_target(CHAR16 **target_path, BOOLEAN *onesho
 	if (ret != DNX && ret != NORMAL_BOOT)
 		goto out;
 
+#ifndef USE_SBL
 	debug(L"Bootlogic: Check battery level...");
 	ret = check_battery();
 
@@ -633,6 +639,7 @@ static enum boot_target choose_boot_target(CHAR16 **target_path, BOOLEAN *onesho
 
 	debug(L"Bootlogic: Check charger insertion...");
 	ret = check_charge_mode();
+#endif
 
 out:
 	debug(L"Bootlogic: selected '%s'",  boot_target_description(ret));
@@ -915,6 +922,16 @@ static EFI_STATUS load_image(VOID *bootimage, VOID *vendorbootimage, UINT8 boot_
 		efi_perror(ret, L"Failed to set os secure boot");
 #endif
 
+#ifdef USE_IVSHMEM
+	if (is_bootimg_target(boot_target)) {
+		ret = ivsh_send_rot_data(bootimage, boot_state, vb_data);
+		if (EFI_ERROR(ret)) {
+			debug(L"Unable to send the root of trust data to optee");
+			die();
+		}
+	}
+#endif
+
 	/* install acpi tables before starting trusty */
 	ret = setup_acpi_table(bootimage, boot_target);
 	if (EFI_ERROR(ret)) {
@@ -943,6 +960,12 @@ static EFI_STATUS load_image(VOID *bootimage, VOID *vendorbootimage, UINT8 boot_
 		ret = update_rot_data(bootimage, boot_state, vb_data);
 		if (EFI_ERROR(ret)) {
 			efi_perror(ret, L"Unable to get the root of trust data for trusty");
+			die();
+		}
+
+		ret = update_attestation_ids(vendorbootimage);
+		if (EFI_ERROR(ret)) {
+			efi_perror(ret, L"Unable to get the attestation ids for trusty");
 			die();
 		}
 
@@ -1033,7 +1056,10 @@ static VOID enter_fastboot_mode(UINT8 boot_state)
 			&boot_state, FALSE, TRUE);
 	set_oemvars_update(TRUE);
 	//stop bootloader seed protocol when entering fastboot mode
+#ifndef USE_SBL
+	//WA, to remove
 	stop_bls_proto();
+#endif
 	for (;;) {
 		target = UNKNOWN_TARGET;
 
@@ -1103,9 +1129,12 @@ static VOID enter_fastboot_mode(UINT8 boot_state)
 
 	die();
 }
+
 static void bootloader_recover_mode(UINT8 boot_state)
 {
 	enum boot_target target;
+
+	(VOID)boot_state;
 
 	if (is_running_on_kvm()) {
 		/*
@@ -1130,11 +1159,16 @@ static void bootloader_recover_mode(UINT8 boot_state)
 	die();
 }
 
-static VOID boot_error(enum ux_error_code error_code, UINT8 boot_state,
-			UINT8 *hash, UINTN hash_size)
+static VOID boot_error(enum ux_error_code error_code , UINT8 boot_state,
+			UINT8 *hash , UINTN hash_size )
 {
 	BOOLEAN power_off = FALSE;
 	enum boot_target bt;
+
+	(VOID)error_code;
+	(VOID)boot_state;
+	(VOID)hash;
+	(VOID)hash_size;
 
 	if (boot_state > min_boot_state()) {
 		power_off = TRUE;
@@ -1186,7 +1220,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	ux_display_vendor_splash();
 #endif
 
-	debug(KERNELFLINGER_VERSION);
+	info(KERNELFLINGER_VERSION);
 
 	/* populate globals */
 	g_parent_image = image;
@@ -1215,12 +1249,20 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		}
 	}
 
+#ifndef USE_SBL
 	uefi_bios_update_capsule(g_disk_device, FWUPDATE_FILE);
 
 	uefi_check_upgrade(g_loaded_image, BOOTLOADER_LABEL, KFUPDATE_FILE,
 			BOOTLOADER_FILE, BOOTLOADER_FILE_BAK, KFSELF_FILE, KFBACKUP_FILE);
+#endif
 
-	need_lock = device_need_locked();
+#ifdef USE_IVSHMEM
+	ret = ivshmem_init();
+	if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
+		efi_perror(ret, L"Failed to init ivshmem, enter fastboot mode");
+		boot_target = FASTBOOT;
+	}
+#endif
 
 #ifdef USE_TPM
 	if (!is_live_boot()) {
@@ -1231,6 +1273,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		}
 	}
 #endif
+
+	need_lock = device_need_locked();
 
 	/* For civ, flash images to disk is not MUST. So set device to LOCKED
 	 * state by default on the first boot.
@@ -1249,6 +1293,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		efi_perror(ret, L"Slot management initialization failed");
 		return ret;
 	}
+
+	/* The code is only availble for fb4sbl.elf image which is used
+	 * as ELK file in non efi boot. It will force bootloader enter
+	 * into fastboot mode.
+	 */
+#ifdef __FORCE_FASTBOOT
+	enter_fastboot_mode(boot_state);
+#endif
 
 	/* No UX prompts before this point, do not want to interfere
 	 * with magic key detection

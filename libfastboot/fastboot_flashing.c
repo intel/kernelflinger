@@ -40,6 +40,7 @@
 #include "gpt.h"
 #include "intel_variables.h"
 #include "android.h"
+#include "tpm2_security.h"
 
 static cmdlist_t cmdlist;
 
@@ -113,6 +114,29 @@ EFI_STATUS change_device_state(enum device_state new_state, BOOLEAN interactive)
 		info(L"Erase done.");
 	}
 #endif
+
+	if (UNLOCKED == new_state) {
+		info(L"Erasing rollback index...");
+
+/*
+ * Accroding to AVB_AB implementation, only 2 rollback slots will be used,
+ * we reset 2 possible slots only.
+ */
+		for (int slot = 0; slot < 2; slot++) {
+			uint64_t idx;
+#ifdef USE_TPM
+			ret = read_rollback_index_tpm2(slot, &idx);
+			if (EFI_SUCCESS == ret) {
+				ret = write_rollback_index_tpm2(slot, 0);
+			}
+#else
+			ret = read_efi_rollback_index(slot, &idx);
+			if (EFI_SUCCESS == ret) {
+				ret = write_efi_rollback_index(slot, 0);
+			}
+#endif
+		}
+	}
 
 	ret = set_current_state(new_state);
 	if (EFI_ERROR(ret)) {

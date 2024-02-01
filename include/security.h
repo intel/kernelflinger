@@ -42,9 +42,10 @@
 
 #define BOOT_TARGET_SIZE         32
 #define BOOT_SIGNATURE_MAX_SIZE  4096
-#define ROT_DATA_STRUCT_VERSION2 0x02
+#define ROT_DATA_STRUCT_VERSION2  2
+#define ATTESTATION_ID_MAX_LENGTH 64
 
-#define SETUP_MODE_VAR	        L"SetupMode"
+#define SETUP_MODE_VAR          L"SetupMode"
 #define SECURE_BOOT_VAR         L"SecureBoot"
 
 BOOLEAN is_platform_secure_boot_enabled(VOID);
@@ -67,17 +68,21 @@ struct rot_data_t{
           * For example, version 6.0.1 would be represented as 060001;
         */
         UINT32 osVersion;
-        /* The month and year of the last patch as an integer in the format,
-          * YYYYMM, where YYYY is a four-digit year and MM is a two-digit month.
-          * For example, April 2016 would be represented as 201604.
+        /* The day, month and year of the last patch as an integer in the format,
+          * YYYYMMDD, where YYYY is a four-digit year and MM is a two-digit month,
+          * DD is a two-digit day. For example, April 1, 2016 would be represented
+          * 20160401.
         */
-        UINT32 patchMonthYear;
+        UINT32 patchMonthYearDay;
         /* A secure hash (SHA-256 recommended by Google) of the key used to verify the system image
           * key_size (in bytes) is zero: denotes no key provided by Bootloader. When key_size is
           * 32, it denotes,key_hash256 is available. Other values not defined now.
         */
         UINT32 keySize;
         UINT8  keyHash256[SHA256_DIGEST_LENGTH];
+
+        UINT32 digestSize;
+        UINT8  vbmetaDigest[AVB_SHA512_DIGEST_SIZE];
 } ;
 
 /* Update the struct rot_data for startup_information */
@@ -93,9 +98,45 @@ EFI_STATUS init_rot_data(
 /* Return rot data instance pointer*/
 struct rot_data_t *get_rot_data();
 
+#ifdef USE_IVSHMEM
+EFI_STATUS ivsh_send_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
+        IN VBDATA *vb_data);
+#endif
+
 EFI_STATUS raw_pub_key_sha256(
         IN const UINT8 *pub_key,
         IN UINTN pub_key_len,
         OUT UINT8 **hash_p);
+
+/* Structure for Attestation_ids info
+*/
+struct attestation_ids_t{
+        UINT32 brandSize;
+        UINT8 brand[ATTESTATION_ID_MAX_LENGTH];
+
+        UINT32 deviceSize;
+        UINT8 device[ATTESTATION_ID_MAX_LENGTH];
+
+        UINT32 modelSize;
+        UINT8 model[ATTESTATION_ID_MAX_LENGTH];
+
+        UINT32 manufacturerSize;
+        UINT8 manufacturer[ATTESTATION_ID_MAX_LENGTH];
+
+        UINT32 nameSize;
+        UINT8 name[ATTESTATION_ID_MAX_LENGTH];
+
+        UINT32 serialSize;
+        UINT8 serial[ATTESTATION_ID_MAX_LENGTH];
+} ;
+
+/* Update the struct attestation_ids for startup_information */
+EFI_STATUS update_attestation_ids(IN VOID *vendorbootimage);
+
+/* Initialize the struct attestation_ids for startup_information */
+EFI_STATUS init_attestation_ids();
+
+/* Return attestation ids instance pointer*/
+struct attestation_ids_t *get_attestation_ids();
 
 #endif

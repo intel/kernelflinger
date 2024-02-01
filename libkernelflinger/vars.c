@@ -66,6 +66,8 @@
 
 #define ANDROID_PROP_VALUE_MAX	92
 #define REBOOT_REASON_MAX 	64
+#define SBL_RESET_REASON "reset"
+#define CMD_FOR_KERNEL   "cmd_for_kernel"
 
 /* Default maximum number of watchdog resets in a row before the crash
  * event menu is displayed. */
@@ -841,7 +843,7 @@ char *get_serial_number(void)
 		goto bad;
 	}
 
-	efi_snprintf((CHAR8*)serialno, SERIALNO_MAX_SIZE, (CHAR8*) "%a", bios_serialno);
+	efi_snprintf((CHAR8*)serialno, SERIALNO_MAX_SIZE + 1, (CHAR8*) "%a", bios_serialno);
 
 	for (pos = serialno; *pos; pos++) {
 		/* Replace foreign characters with zeroes */
@@ -870,6 +872,24 @@ bad:
 	strncpy_s((CHAR8 *)serialno, sizeof(serialno), (CHAR8 *)"00badbios00badbios00", SERIALNO_MAX_SIZE);
 	return serialno;
 }
+
+#ifdef USE_SBL
+CHAR16 *get_sbl_boot_reason(){
+	const char *reason;
+	CHAR16 *ret;
+
+	reason = ewarg_getval(SBL_RESET_REASON);
+	if (!reason)
+		return L"unknown";
+	//convert to CHAR16
+	ret = stra_to_str((CHAR8 *)reason);
+	return ret;
+}
+
+const char *get_cmd_for_kernel(){
+    return ewarg_getval(CMD_FOR_KERNEL);
+}
+#endif
 
 CHAR16 *get_reboot_reason()
 {

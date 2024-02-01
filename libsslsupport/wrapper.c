@@ -830,7 +830,7 @@ void *memchr(const void *s, int c, size_t n)
 }
 
 
-void perror ( const char * str )
+void __attribute__((weak)) perror ( const char * str )
 {
 	error(L"%a: errno=%d", str, errno);
 }

@@ -55,6 +55,7 @@ void vlog(const CHAR16 *fmt, va_list args);
 #if DEBUG_MESSAGES
 #define debug(fmt, ...) do { \
     log(fmt "\n", ##__VA_ARGS__); \
+    log_flush_to_var(TRUE); \
 } while(0)
 
 #ifdef USE_UI

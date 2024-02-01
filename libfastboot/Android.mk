@@ -63,6 +63,11 @@ LOCAL_C_INCLUDES := $(SHARED_C_INCLUDES) \
 	$(addprefix $(LOCAL_PATH)/../,libsslsupport)
 LOCAL_SRC_FILES := $(SHARED_SRC_FILES)
 
+ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
+	LOCAL_SRC_FILES += \
+	installer_ui.c
+endif
+
 ifeq ($(TARGET_USE_SBL),true)
 LOCAL_CFLAGS += -DUSE_SBL
 endif

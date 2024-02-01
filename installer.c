@@ -51,6 +51,10 @@
 #include "security.h"
 #include "security_interface.h"
 #include "security_efi.h"
+#ifdef USE_UI
+#include "installer_ui.h"
+#include "ui.h"
+#endif
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
@@ -594,7 +598,7 @@ static void installer_flash_cmd(INTN argc, CHAR8 **argv)
 	for (int i = 0; i <  num; i++)
 		numname[i] = NULL;
 
-	if (argc > 4) {
+	if (argc > 3) {
 		argc = 2;
 		for (int i = 0; i <  num; i++) {
 			numname[i] = stra_to_str(argv[i+2]);
@@ -746,12 +750,12 @@ static void installer_format(INTN argc, CHAR8 **argv)
 	UINTN size;
 	CHAR16 *filename;
 
-	if (argc != 2) {
-		fastboot_fail("Format command requires exactly 2 arguments");
+	if (argc != 2 && argc != 3) {
+		fastboot_fail("Format command requires 2 or 3 arguments");
 		return;
 	}
 
-	filename = get_format_image_filename(argv[1]);
+	filename = get_format_image_filename(argv[argc - 1]);
 	if (!filename)
 		return;
 
@@ -764,10 +768,11 @@ static void installer_format(INTN argc, CHAR8 **argv)
 		goto free_filename;
 	}
 
-	argv[1] = get_target(argv[1]);
+	argv[1] = get_target(argv[argc - 1]);
 	if (!argv[1])
 		goto free_data;
 
+	argc = 2;
 	do_erase(argc, argv);
 	if (!last_cmd_succeeded)
 		goto free_data;
@@ -1162,6 +1167,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 		efi_perror(ret, L"Slot management initialization failed");
 		goto exit;
 	}
+
+	new_install_device = TRUE;
+
+#ifdef USE_UI
+	ret = ux_prompt_user_confirm();
+	if (ret != EFI_SUCCESS)
+		goto exit;
+#endif
 
 	/* Run the fastboot library. */
 	ret = fastboot_start(&bootimage, &efiimage, &imagesize, &target);

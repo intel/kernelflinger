@@ -189,6 +189,11 @@ CHAR8 *itoa(int val, CHAR8 *buf, unsigned radix)
 void *memcpy(void *dest, const void *source, size_t count)
     __attribute__((weak));
 
+#ifdef CRASHMODE_USE_ADB
+EFI_STATUS memdump(void *dest, size_t dest_size, const void *source, size_t count)
+    __attribute__((weak));
+#endif
+
 EFI_STATUS memcpy_s(void *dest, size_t dest_size, const void *source, size_t count)
     __attribute__((weak));
 
@@ -236,6 +241,7 @@ void StrToLower(CHAR16 *s);
 VOID halt_system(VOID) __attribute__ ((noreturn));
 
 VOID pause(UINTN seconds);
+VOID pause_us(UINTN microseconds);
 
 VOID reboot(CHAR16 *target, EFI_RESET_TYPE type) __attribute__ ((noreturn));
 

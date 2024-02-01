@@ -434,6 +434,25 @@ out:
   return ret;
 }
 
+unsigned int avb_ab_get_active_slot(AvbABOps* ab_ops) {
+  AvbABData ab_data, ab_data_orig;
+  AvbIOResult ret;
+
+  ret = load_metadata(ab_ops, &ab_data, &ab_data_orig);
+  if (ret != AVB_IO_RESULT_OK) {
+    goto out;
+  }
+
+  for (unsigned int i = 0; i < 2; i++) {
+    if (ab_data_orig.slot_info[i].priority == AVB_AB_MAX_PRIORITY)
+      return i;
+  }
+
+out:
+  return 0;
+}
+
+
 AvbIOResult avb_ab_mark_slot_unbootable(AvbABOps* ab_ops,
                                         unsigned int slot_number) {
   AvbABData ab_data, ab_data_orig;
@@ -455,6 +474,46 @@ out:
     ret = save_metadata_if_changed(ab_ops, &ab_data, &ab_data_orig);
   }
   return ret;
+}
+
+AvbIOResult avb_ab_set_snapshot_merge_status(AvbABOps* ab_ops,
+                                        uint8_t merge_status) {
+  AvbABData ab_data, ab_data_orig;
+  AvbIOResult ret;
+
+  if (merge_status > CANCELLED)
+    merge_status = UNKNOWN;
+
+  ret = load_metadata(ab_ops, &ab_data, &ab_data_orig);
+  if (ret != AVB_IO_RESULT_OK) {
+    goto out;
+  }
+
+  ab_data.merge_status = merge_status;
+
+  ret = AVB_IO_RESULT_OK;
+
+out:
+  if (ret == AVB_IO_RESULT_OK) {
+    ret = save_metadata_if_changed(ab_ops, &ab_data, &ab_data_orig);
+  }
+  return ret;
+}
+
+uint8_t avb_ab_get_snapshot_merge_status(AvbABOps* ab_ops) {
+  AvbABData ab_data, ab_data_orig;
+  AvbIOResult ret;
+  uint8_t status = UNKNOWN;
+
+  ret = load_metadata(ab_ops, &ab_data, &ab_data_orig);
+  if (ret != AVB_IO_RESULT_OK) {
+    goto out;
+  }
+
+  status = ab_data.merge_status;
+
+out:
+  return status;
 }
 
 AvbIOResult avb_ab_mark_slot_successful(AvbABOps* ab_ops,

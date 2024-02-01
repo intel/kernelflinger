@@ -37,6 +37,8 @@
 
 #include <efi.h>
 
+extern BOOLEAN new_install_device;
+
 EFI_STATUS flash_skip(UINT64 size);
 EFI_STATUS flash_write(VOID *data, UINTN size);
 EFI_STATUS flash_fill(UINT32 pattern, UINTN size);

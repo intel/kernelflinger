@@ -269,6 +269,7 @@ int km_tipc_init(struct trusty_ipc_dev *dev)
 {
     int rc = TRUSTY_ERR_GENERIC;
     struct rot_data_t* p_rot_data = NULL;
+    struct attestation_ids_t* p_attestation_ids = NULL;
 
     trusty_assert(dev);
 
@@ -298,19 +299,43 @@ int km_tipc_init(struct trusty_ipc_dev *dev)
 
     /* sent the ROT information to trusty */
     rc = trusty_set_boot_params(p_rot_data->osVersion,
-                p_rot_data->patchMonthYear,
+                p_rot_data->patchMonthYearDay,
                 p_rot_data->verifiedBootState,
                 p_rot_data->deviceLocked,
                 p_rot_data->keyHash256,
                 p_rot_data->keySize,
-                NULL,
-                0);
+                p_rot_data->vbmetaDigest,
+                p_rot_data->digestSize);
 
     if (rc != KM_ERROR_OK && rc != KM_ERROR_ROOT_OF_TRUST_ALREADY_SET) {
         trusty_error("set boot_params has failed( %d )\n", rc);
         return TRUSTY_ERR_GENERIC;
     }
 
+    /* sent the boot_patchlevel information to trusty */
+    rc = trusty_config_boot_patchlevel(p_rot_data->patchMonthYearDay);
+
+    if (rc != KM_ERROR_OK) {
+        trusty_error("config boot_patchlevel has failed( %d )\n", rc);
+        return TRUSTY_ERR_GENERIC;
+    }
+
+    p_attestation_ids =  get_attestation_ids();
+
+    /* sent the attestation_ids information to trusty */
+    rc = trusty_set_attestation_ids(p_attestation_ids->brand, p_attestation_ids->brandSize,
+                p_attestation_ids->device, p_attestation_ids->deviceSize,
+                p_attestation_ids->name, p_attestation_ids->nameSize,
+                p_attestation_ids->serial,p_attestation_ids->serialSize,
+                0,0,
+                0,0,
+                p_attestation_ids->manufacturer, p_attestation_ids->manufacturerSize,
+                p_attestation_ids->model, p_attestation_ids->modelSize);
+
+    if (rc != KM_ERROR_OK) {
+        trusty_error("set attestation_ids has failed( %d )\n", rc);
+        return TRUSTY_ERR_GENERIC;
+    }
     return TRUSTY_ERR_NONE;
 }
 
@@ -352,6 +377,79 @@ int trusty_set_boot_params(uint32_t os_version, uint32_t os_patchlevel,
         goto end;
     }
     rc = km_do_tipc(KM_SET_BOOT_PARAMS, req, req_size, NULL, NULL);
+
+end:
+    if (req) {
+        trusty_free(req);
+    }
+    return rc;
+}
+
+int trusty_config_boot_patchlevel(uint32_t boot_patchlevel)
+{
+    struct km_boot_patchlevel params = {
+        .boot_patchlevel = boot_patchlevel
+    };
+    uint8_t *req = NULL;
+    uint32_t req_size = 0;
+    int rc = km_boot_patchlevel_serialize(&params, &req, &req_size);
+
+    if (rc < 0) {
+        trusty_error("failed (%d) to serialize request\n", rc);
+        goto end;
+    }
+    rc = km_do_tipc(KM_CONFIGURE_BOOT_PATCHLEVEL, req, req_size, NULL, NULL);
+
+end:
+    if (req) {
+        trusty_free(req);
+    }
+    return rc;
+}
+
+int trusty_set_attestation_ids(const uint8_t *brand,
+                               uint32_t brand_size,
+                               const uint8_t *device,
+                               uint32_t device_size,
+                               const uint8_t *product,
+                               uint32_t product_size,
+                               const uint8_t *serial,
+                               uint32_t serial_size,
+                               const uint8_t *imei,
+                               uint32_t imei_size,
+                               const uint8_t *meid,
+                               uint32_t meid_size,
+                               const uint8_t *manufacturer,
+                               uint32_t manufacturer_size,
+                               const uint8_t *model,
+                               uint32_t model_size)
+{
+    struct km_attestation_ids params = {
+        .brand_size = brand_size,
+        .brand = brand,
+        .device_size = device_size,
+        .device = device,
+        .product_size = product_size,
+        .product = product,
+        .serial_size = serial_size,
+        .serial = serial,
+        .imei_size = imei_size,
+        .imei = imei,
+        .meid_size = meid_size,
+        .meid = meid,
+        .manufacturer_size = manufacturer_size,
+        .manufacturer = manufacturer,
+        .model_size = model_size,
+        .model = model
+    };
+    uint8_t *req = NULL;
+    uint32_t req_size = 0;
+    int rc = km_attestation_ids_serialize(&params, &req, &req_size);
+    if (rc < 0) {
+        trusty_error("failed (%d) to serialize request\n", rc);
+        goto end;
+    }
+    rc = km_do_tipc(KM_SET_ATTESTATION_IDS, req, req_size, NULL, NULL);
 
 end:
     if (req) {

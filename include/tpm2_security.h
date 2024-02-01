@@ -42,8 +42,10 @@
 EFI_STATUS tpm2_init(void);
 EFI_STATUS tpm2_end(void);
 
+#ifndef USE_IVSHMEM
 EFI_STATUS tpm2_fuse_trusty_seed(void);
 EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE]);
+#endif
 
 EFI_STATUS tpm2_fuse_perm_attr(void *data, uint32_t size);
 

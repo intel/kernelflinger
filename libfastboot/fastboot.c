@@ -58,11 +58,12 @@
 #endif
 #include "timer.h"
 #include "android.h"
+#include "libavb_ab/libavb_ab.h"
 
 /* size of "INFO" "OKAY" or "FAIL" */
 #define CODE_LENGTH 4
 #define INFO_PAYLOAD (MAGIC_LENGTH - CODE_LENGTH)
-#define MAX_VARIABLE_LENGTH 64
+#define MAX_VARIABLE_LENGTH 256
 #if defined(IOC_USE_SLCAN) || defined(IOC_USE_CBC)
 #define TIMEOUT 5
 #endif
@@ -421,6 +422,34 @@ const char* fastboot_slot_get_active()
 		return p + 1;
 	}
 	return p;
+}
+
+static int can_erase_or_flash_partition(CHAR16 *label)
+{
+	struct AvbABOps ab_ops;
+	AvbOps *ops;
+	int ret = 1;
+
+	ab_ops.read_ab_metadata = avb_ab_data_read;
+	ab_ops.write_ab_metadata = avb_ab_data_write;
+
+	ops = uefi_avb_ops_new();
+	if (ops == NULL) {
+		error(L"Error allocating AvbOps when slot_init.");
+		return 0;
+	}
+	ab_ops.ops = ops;
+
+	if (!StrCmp(label, L"userdata") ||
+                        !StrCmp(label, L"misc") ||
+                        !StrCmp(label, L"metadata")) {
+		uint8_t status = avb_ab_get_snapshot_merge_status(&ab_ops);
+		if (status == SNAPSHOTTED || status == MERGING)
+			ret = 0;
+	}
+
+	uefi_avb_ops_free(ops);
+	return ret;
 }
 
 static EFI_STATUS publish_slots(void)
@@ -799,6 +828,12 @@ static void cmd_flash(INTN argc, CHAR8 **argv)
 		fastboot_fail("Allocation error");
 		return;
 	}
+
+	if (!can_erase_or_flash_partition(label)) {
+		fastboot_fail("Currently virtual a/b ota is in progress...");
+		return;
+	}
+
 	info(L"Flashing %s ...", label);
 
 	ret = flash(dl.data, dl.size, label);
@@ -839,6 +874,12 @@ static void cmd_erase(INTN argc, CHAR8 **argv)
 		fastboot_fail("Allocation error");
 		return;
 	}
+
+	if (!can_erase_or_flash_partition(label)) {
+		fastboot_fail("Currently virtual a/b ota is in progress...");
+		return;
+	}
+
 	info(L"Erasing %s ...", label);
 	ret = erase_by_label(label);
 	if (EFI_ERROR(ret)) {
@@ -1080,7 +1121,7 @@ static void cmd_download(INTN argc, CHAR8 **argv)
 		fastboot_fail("data too large");
 		return;
 	}
-	ui_print(L"Receiving %ld bytes ...", dl.size);
+	ui_print(L"Receiving 0x%llx bytes ...", dl.size);
 
 	len = efi_snprintf(response, sizeof(response), (CHAR8 *)"DATA%08x",
 			   dl.size);

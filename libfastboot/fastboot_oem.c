@@ -248,7 +248,9 @@ static struct oem_hash {
 #endif
 	{ TOS_LABEL,		get_boot_image_hash,	TRUE },
 #endif
+#ifndef USE_SBL
 	{ BOOTLOADER_LABEL,	get_bootloader_hash,	FALSE },
+#endif
 	{ VBMETA_LABEL,		get_vbmeta_image_hash,	FALSE },
 #ifdef DYNAMIC_PARTITIONS
 	{ SUPER_LABEL,		get_super_image_hash,	TRUE }

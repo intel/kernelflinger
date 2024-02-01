@@ -258,3 +258,17 @@ EFI_STATUS load_tos_image(OUT VOID **tosimage)
 
         return EFI_SUCCESS;
 }
+
+static VOID activate_vtd(VOID)
+{
+#define VMCALL_ACTIVATE_VTD 0x56544400ULL        // "VTD"
+        asm volatile ("vmcall" : : "a"(VMCALL_ACTIVATE_VTD));
+}
+
+/*
+ * This function is designed to run after bootloader triggered ExitBootService.
+ */
+VOID trusty_late_init(VOID)
+{
+        activate_vtd();
+}

@@ -46,6 +46,13 @@
 #include "lib.h"
 #include "vars.h"
 #include "life_cycle.h"
+#include "uefi_utils.h"
+
+#ifdef USE_IVSHMEM
+#include "ivshmem.h"
+
+extern UINT64 g_ivshmem_rot_addr;
+#endif
 
 /* OsSecureBoot is *not* a standard EFI_GLOBAL variable
  *
@@ -73,6 +80,7 @@ union android_version {
 };
 
 static struct rot_data_t rot_data;
+static struct attestation_ids_t attestation_ids;
 
 EFI_STATUS raw_pub_key_sha256(IN const UINT8 *pub_key,
             IN UINTN pub_key_len,
@@ -131,9 +139,16 @@ EFI_STATUS update_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
                         return EFI_UNSUPPORTED;
         }
         rot_data.verifiedBootState = boot_state;
+
         temp_version.value = boot_image_header->os_version;
+        if (boot_image_header->header_version >= BOOT_HEADER_V3) {
+                struct boot_img_hdr_v3 *boot_hdr = (struct boot_img_hdr_v3 *)bootimage;
+                temp_version.value = boot_hdr->os_version;
+        }
         rot_data.osVersion = (temp_version.split.version_A * 100 + temp_version.split.version_B) * 100 + temp_version.split.version_C;
-        rot_data.patchMonthYear = (temp_version.split.year + 2000) * 100 + temp_version.split.month;
+        /* VTS require the patchlevel's format should be YYYYMMDD, but the patch level's format in boot header */
+        /* is YYYYMM. We set the DD value to a fixed value of 1. */
+        rot_data.patchMonthYearDay = ((temp_version.split.year + 2000) * 100 + temp_version.split.month) * 100 + 1;
         rot_data.keySize = SHA256_DIGEST_LENGTH;
 
         if (vb_data) {
@@ -142,13 +157,73 @@ EFI_STATUS update_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
                         efi_perror(ret, L"Failed to compute key hash");
                         return ret;
                 }
-                CopyMem(rot_data.keyHash256, temp_hash, rot_data.keySize);
+                if (state == LOCKED) {
+                        CopyMem(rot_data.keyHash256, temp_hash, rot_data.keySize);
+                } else {
+                        memset_s(rot_data.keyHash256, SHA256_DIGEST_LENGTH, 0, SHA256_DIGEST_LENGTH);
+                        barrier();
+                }
+
+                AvbVBMetaImageHeader h;
+                UINT8* vbmeta_data = vb_data->vbmeta_images[0].vbmeta_data;
+                avb_vbmeta_image_header_to_host_byte_order((const AvbVBMetaImageHeader*)vbmeta_data, &h);
+
+                switch (h.algorithm_type) {
+                        /* Explicit fallthrough. */
+                        case AVB_ALGORITHM_TYPE_NONE:
+                        case AVB_ALGORITHM_TYPE_SHA256_RSA2048:
+                        case AVB_ALGORITHM_TYPE_SHA256_RSA4096:
+                        case AVB_ALGORITHM_TYPE_SHA256_RSA8192:
+                                avb_slot_verify_data_calculate_vbmeta_digest(
+                                                vb_data, AVB_DIGEST_TYPE_SHA256, rot_data.vbmetaDigest);
+                                rot_data.digestSize= AVB_SHA256_DIGEST_SIZE;
+                                break;
+                                /* Explicit fallthrough. */
+                        case AVB_ALGORITHM_TYPE_SHA512_RSA2048:
+                        case AVB_ALGORITHM_TYPE_SHA512_RSA4096:
+                        case AVB_ALGORITHM_TYPE_SHA512_RSA8192:
+                                avb_slot_verify_data_calculate_vbmeta_digest(
+                                                vb_data, AVB_DIGEST_TYPE_SHA512, rot_data.vbmetaDigest);
+                                rot_data.digestSize = AVB_SHA512_DIGEST_SIZE;
+                                break;
+                        default:
+                                debug(L"Unknown digest type");
+                                return EFI_UNSUPPORTED;
+                                break;
+                }
+
         } else {
                 memset_s(rot_data.keyHash256, SHA256_DIGEST_LENGTH, 0, SHA256_DIGEST_LENGTH);
+                memset_s(rot_data.vbmetaDigest, AVB_SHA512_DIGEST_SIZE, 0, AVB_SHA512_DIGEST_SIZE);
                 barrier();
         }
         return ret;
 }
+
+#ifdef USE_IVSHMEM
+EFI_STATUS ivsh_send_rot_data(IN VOID *bootimage, IN UINT8 boot_state,
+                        IN VBDATA *vb_data)
+{
+    EFI_STATUS ret = EFI_SUCCESS;
+
+    if (!g_ivshmem_rot_addr)
+        return EFI_NOT_READY;
+
+    ret = update_rot_data(bootimage, boot_state, vb_data);
+    if (EFI_ERROR(ret)) {
+        efi_perror(ret, L"Unable to update the root of trust data");
+        return ret;
+    }
+
+    memcpy_s((void*)g_ivshmem_rot_addr, sizeof(struct rot_data_t),
+            &rot_data, sizeof(struct rot_data_t));
+
+    /* trigger an interrupt to optee */
+    ivshmem_rot_interrupt();
+
+    return ret;
+}
+#endif
 
 /* initialize the struct rot_data for startup_information */
 EFI_STATUS init_rot_data(UINT32 boot_state)
@@ -159,7 +234,7 @@ EFI_STATUS init_rot_data(UINT32 boot_state)
     rot_data.verifiedBootState = boot_state;
 
     rot_data.osVersion = 0;
-    rot_data.patchMonthYear = 0;
+    rot_data.patchMonthYearDay = 0;
     rot_data.keySize = SHA256_DIGEST_LENGTH;
 
     /* TBD: keyHash should be the key which used to sign vbmeta.ias */
@@ -174,6 +249,135 @@ struct rot_data_t* get_rot_data()
 	return &rot_data;
 }
 
+CHAR8* strrpl(CHAR8 *in, const char src, const char dst)
+{
+    if (NULL == in)
+        return in;
+    CHAR8 *p = in;
+    while(*p != '\0'){
+        if(*p == src)
+            *p = dst;
+        p++;
+    }
+    return in;
+}
+
+static EFI_STATUS set_attestation_ids(UINT8 *src)
+{
+    const char *delim = "=";
+    CHAR8 *savedPtr2;
+    const char d1 = ',';
+    const char d2 = ' ';
+    CHAR8 *token;
+    CHAR8 *temp;
+    unsigned size;
+
+    if (src == NULL)
+        return EFI_INVALID_PARAMETER;
+
+    token = strtok_r(src, delim, (char **)&savedPtr2);//Get the string after the equal sign
+    temp = strrpl(savedPtr2, d1, d2);//Converts comma to space in the string
+    size = (strlen(temp) < ATTESTATION_ID_MAX_LENGTH) ? strlen(temp) : ATTESTATION_ID_MAX_LENGTH;
+    if (strncmp(token, "androidboot.brand", strlen("androidboot.brand")) == 0) {
+        attestation_ids.brandSize = size;
+        CopyMem(attestation_ids.brand, temp, size);
+    } else if (strncmp(token, "androidboot.device", strlen("androidboot.device")) == 0) {
+        attestation_ids.deviceSize = size;
+        CopyMem(attestation_ids.device, temp, size);
+    } else if (strncmp(token, "androidboot.model", strlen("androidboot.model")) == 0) {
+        attestation_ids.modelSize = size;
+        CopyMem(attestation_ids.model, temp, size);
+    } else if (strncmp(token, "androidboot.manufacturer", strlen("androidboot.manufacturer")) == 0) {
+        attestation_ids.manufacturerSize = size;
+        CopyMem(attestation_ids.manufacturer, temp, size);
+    } else if (strncmp(token, "androidboot.name", strlen("androidboot.name")) == 0) {
+        attestation_ids.nameSize = size;
+        CopyMem(attestation_ids.name, temp, size);
+    } else
+        return EFI_UNSUPPORTED;
+
+    return EFI_SUCCESS;
+}
+
+/* Update the struct attestation_ids for startup_information */
+EFI_STATUS update_attestation_ids(IN VOID *vendorbootimage)
+{
+    EFI_STATUS ret = EFI_SUCCESS;
+    struct vendor_boot_img_hdr_v4 *vendor_hdr;
+    UINT32 page_size;
+    UINT32 bootconfig_offset;
+    UINT8 *configChar;
+    const char *delim = "\n";
+    CHAR8 *savedPtr;
+    CHAR8 *token;
+    CHAR8 *temp_serial = NULL;
+
+    if(vendorbootimage == NULL || ((struct vendor_boot_img_hdr_v3 *)vendorbootimage)->header_version < 4)
+        return ret;
+
+    vendor_hdr = (struct vendor_boot_img_hdr_v4 *)vendorbootimage;
+    page_size = vendor_hdr->page_size;
+    bootconfig_offset = ALIGN(sizeof(struct vendor_boot_img_hdr_v4), page_size) +
+                               ALIGN(vendor_hdr->vendor_ramdisk_size, page_size) +
+                               ALIGN(vendor_hdr->dtb_size, page_size) +
+                               ALIGN(vendor_hdr->vendor_ramdisk_table_size, page_size);
+
+    if (vendor_hdr->bootconfig_size == 0)
+        return ret;
+
+    /* Initialize the attestation ids structure */
+    configChar = AllocatePool(vendor_hdr->bootconfig_size + 1);
+    memcpy_s(configChar,
+    vendor_hdr->bootconfig_size, vendorbootimage + bootconfig_offset,
+    vendor_hdr->bootconfig_size);
+    configChar[vendor_hdr->bootconfig_size] = '\0';
+    token = (CHAR8 *)strtok_r((char *)configChar, delim, (char **)&savedPtr);
+    while (token != NULL) {
+        set_attestation_ids(token);
+        token = (CHAR8 *)strtok_r(NULL, delim, (char **)&savedPtr);
+    }
+
+    temp_serial = get_serial_number();
+    attestation_ids.serialSize = (strlen(temp_serial) < ATTESTATION_ID_MAX_LENGTH) ? strlen(temp_serial) : ATTESTATION_ID_MAX_LENGTH;
+    CopyMem(attestation_ids.serial, temp_serial, attestation_ids.serialSize);
+
+    if(configChar)
+        FreePool(configChar);
+
+    return ret;
+}
+
+/* initialize the struct attestation_ids for startup_information */
+EFI_STATUS init_attestation_ids()
+{
+    /* Initialize the attestation ids structure */
+    attestation_ids.brandSize = 0;
+    memset_s(attestation_ids.brand, ATTESTATION_ID_MAX_LENGTH, 0, ATTESTATION_ID_MAX_LENGTH);
+
+    attestation_ids.deviceSize = 0;
+    memset_s(attestation_ids.device, ATTESTATION_ID_MAX_LENGTH, 0, ATTESTATION_ID_MAX_LENGTH);
+
+    attestation_ids.modelSize = 0;
+    memset_s(attestation_ids.model, ATTESTATION_ID_MAX_LENGTH, 0, ATTESTATION_ID_MAX_LENGTH);
+
+    attestation_ids.manufacturerSize = 0;
+    memset_s(attestation_ids.manufacturer, ATTESTATION_ID_MAX_LENGTH, 0, ATTESTATION_ID_MAX_LENGTH);
+
+    attestation_ids.nameSize = 0;
+    memset_s(attestation_ids.name, ATTESTATION_ID_MAX_LENGTH, 0, ATTESTATION_ID_MAX_LENGTH);
+
+    attestation_ids.serialSize = 0;
+    memset_s(attestation_ids.serial, ATTESTATION_ID_MAX_LENGTH, 0, ATTESTATION_ID_MAX_LENGTH);
+
+    return EFI_SUCCESS;
+}
+
+/* Return rot data instance pointer */
+struct attestation_ids_t* get_attestation_ids()
+{
+    return &attestation_ids;
+}
+
 /* vim: softtabstop=8:shiftwidth=8:expandtab
- */
+*/
 

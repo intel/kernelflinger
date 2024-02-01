@@ -138,6 +138,14 @@ typedef enum {
   AVB_AB_FLOW_RESULT_ERROR_INVALID_ARGUMENT
 } AvbABFlowResult;
 
+typedef enum {
+  NONE = 0,
+  UNKNOWN,
+  SNAPSHOTTED,
+  MERGING,
+  CANCELLED,
+} SnapMergeStatus;
+
 /* Get a textual representation of |result|. */
 const char* avb_ab_flow_result_to_string(AvbABFlowResult result);
 
@@ -226,6 +234,13 @@ AvbABFlowResult avb_ab_flow(AvbABOps* ab_ops,
  */
 AvbIOResult avb_ab_mark_slot_active(AvbABOps* ab_ops, unsigned int slot_number);
 
+/* Support the user to get the current active slot, return
+ * the current active slot number.
+ *
+ * This function is typically used by user through the bootctl command.
+ */
+unsigned int avb_ab_get_active_slot(AvbABOps* ab_ops);
+
 /* Marks the slot with the given slot number as unbootable. Returns
  * AVB_IO_RESULT_OK on success, error code otherwise.
  *
@@ -247,6 +262,20 @@ AvbIOResult avb_ab_mark_slot_unbootable(AvbABOps* ab_ops,
  */
 AvbIOResult avb_ab_mark_slot_successful(AvbABOps* ab_ops,
                                         unsigned int slot_number);
+
+/* Set the snapshot merge status of virtual a/b OTA update.
+ * true on success, false on failure.
+ *
+ * This function is typically used by the virtual a/b ota update
+ */
+AvbIOResult avb_ab_set_snapshot_merge_status(AvbABOps* ab_ops,
+                                        uint8_t merge_status);
+
+/* Get the snapshot merge status of virtual a/b OTA update.
+ *
+ * This function is typically used by the virtual a/b ota update
+ */
+uint8_t avb_ab_get_snapshot_merge_status(AvbABOps* ab_ops);
 
 #ifdef __cplusplus
 }

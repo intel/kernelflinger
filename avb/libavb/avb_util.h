@@ -105,6 +105,7 @@ extern "C" {
 /* Prints out a message. This is typically used if a runtime-error
  * occurs.
  */
+#ifdef AVB_ENABLE_DEBUG
 #define avb_error(message)              \
   do {                                  \
     avb_printv(avb_basename(__FILE__),  \
@@ -126,6 +127,10 @@ extern "C" {
       avb_printv_ui(message,            \
                ##__VA_ARGS__);          \
   } while (0)
+#else
+#define avb_error(message)
+#define avb_errorv(message, ...)
+#endif
 
 /* Prints out a message and calls avb_abort().
  */

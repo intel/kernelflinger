@@ -21,15 +21,21 @@ endif
 
 KERNELFLINGER_CFLAGS += -DAVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED
 
-TARGET_USE_TPM := true
-
 ifeq ($(TARGET_UEFI_ARCH),x86_64)
     KERNELFLINGER_CFLAGS += -D__STDC_VERSION__=199901L
     KERNELFLINGER_CFLAGS += -DARCH_X86_64=1
 endif
 
+ifeq ($(TARGET_USE_SBL),true)
+    KERNELFLINGER_CFLAGS += -DUSE_SBL
+endif
+
 ifeq ($(TARGET_USE_TRUSTY),true)
     KERNELFLINGER_CFLAGS += -DUSE_TRUSTY
+endif
+
+ifeq ($(TARGET_USE_IVSHMEM),true)
+    KERNELFLINGER_CFLAGS += -DUSE_IVSHMEM
 endif
 
 ifeq ($(TARGET_USE_MULTIBOOT),true)
@@ -92,7 +98,6 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
 endif
 
 ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
-    KERNELFLINGER_CFLAGS += -DUSE_UI
 endif
 
 ifeq ($(KERNELFLINGER_OS_SECURE_BOOT),true)
@@ -240,7 +245,8 @@ LOCAL_STATIC_LIBRARIES := \
 	libefiusb-$(TARGET_BUILD_VARIANT) \
 	libefitcp-$(TARGET_BUILD_VARIANT) \
 	libtransport-$(TARGET_BUILD_VARIANT) \
-	libheci-$(TARGET_BUILD_VARIANT)
+	libheci-$(TARGET_BUILD_VARIANT) \
+	libxbc-$(TARGET_BUILD_VARIANT)
 
 ifeq ($(TARGET_USE_TRUSTY),true)
     LOCAL_STATIC_LIBRARIES += libqltipc-$(TARGET_BUILD_VARIANT)
@@ -269,7 +275,8 @@ LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
 
 LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libkernelflinger) \
-	$(addprefix $(LOCAL_PATH)/,libsslsupport)
+	$(addprefix $(LOCAL_PATH)/,libsslsupport) \
+	$(addprefix $(LOCAL_PATH)/,libxbc)
 include $(BUILD_EFI_EXECUTABLE)  # For kernelflinger-$(TARGET_BUILD_VARIANT)
 
 
@@ -278,7 +285,9 @@ LOCAL_MODULE := installer-$(TARGET_BUILD_VARIANT)
 LOCAL_STATIC_LIBRARIES := \
 	$(SHARED_STATIC_LIBRARIES) \
 	libtransport-$(TARGET_BUILD_VARIANT) \
-	libfastboot-for-installer-$(TARGET_BUILD_VARIANT)
+	libfastboot-for-installer-$(TARGET_BUILD_VARIANT) \
+	libxbc-$(TARGET_BUILD_VARIANT)
+
 
 ifeq ($(TARGET_USE_TPM),true)
 	SHARED_STATIC_LIBRARIES += libedk2_tpm
@@ -290,7 +299,8 @@ LOCAL_MODULE_STEM := installer
 LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,libfastboot) \
 	$(addprefix $(LOCAL_PATH)/,libsslsupport) \
-	$(addprefix $(LOCAL_PATH)/,libkernelflinger)
+	$(addprefix $(LOCAL_PATH)/,libkernelflinger) \
+	$(addprefix $(LOCAL_PATH)/,libxbc)
 
 kfins_intermediates := $(call intermediates-dir-for,EFI,kernelflingerins)
 
@@ -328,7 +338,9 @@ LOCAL_GENERATED_SOURCES += $(KFINS_AVB_PK_OBJ)
 LOCAL_C_INCLUDES += $(addprefix $(LOCAL_PATH)/,avb)
 LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
 
+ifneq ($(TARGET_USE_SBL),true)
 include $(BUILD_EFI_EXECUTABLE) # For installer-$(TARGET_BUILD_VARIANT)
+endif
 
 ifeq ($(BOOTLOADER_SLOT), true)
 ifeq ($(BOARD_SLOT_AB_ENABLE),true)
@@ -353,13 +365,11 @@ include $(BUILD_EFI_EXECUTABLE) # For installer-$(TARGET_BUILD_VARIANT)
 endif # BOARD_SLOT_AB_ENABLE
 endif # BOOTLOADER_SLOT
 
-
-
 ifeq ($(KERNELFLINGER_SUPPORT_NON_EFI_BOOT),true)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := kf4abl-$(TARGET_BUILD_VARIANT)
-LOCAL_MODULE_STEM := kf4abl
+LOCAL_MODULE := kf4sbl-$(TARGET_BUILD_VARIANT)
+LOCAL_MODULE_STEM := kf4sbl
 LOCAL_CFLAGS := $(SHARED_CFLAGS)
 
 ifeq ($(KERNELFLINGER_DISABLE_DEBUG_PRINT),true)
@@ -377,7 +387,8 @@ LOCAL_STATIC_LIBRARIES += \
 	libefiwrapper-$(TARGET_BUILD_VARIANT) \
 	libefiwrapper_drivers-$(TARGET_BUILD_VARIANT) \
 	efiwrapper-$(TARGET_BUILD_VARIANT) \
-	libelfloader-$(TARGET_BUILD_VARIANT)
+	libelfloader-$(TARGET_BUILD_VARIANT) \
+	libxbc-$(TARGET_BUILD_VARIANT)
 
 ifeq ($(TARGET_USE_TRUSTY),true)
     LOCAL_STATIC_LIBRARIES += libqltipc-$(TARGET_BUILD_VARIANT)
@@ -388,8 +399,13 @@ LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
 ifneq ($(TARGET_BUILD_VARIANT),user)
     LOCAL_STATIC_LIBRARIES += libadb-$(TARGET_BUILD_VARIANT)
 endif
+#Replace kf4sbl.c by kernelflinger.c
 LOCAL_SRC_FILES := \
-	kf4abl.c
+	kernelflinger.c
+
+ifneq ($(TARGET_BUILD_VARIANT),user)
+    LOCAL_SRC_FILES += unittest.c
+endif
 
 ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
     LOCAL_SRC_FILES += \
@@ -461,16 +477,15 @@ $(ABL_AVB_PK_OBJ): $(ABL_PADDED_AVB_PK)
 LOCAL_GENERATED_SOURCES += $(ABL_AVB_PK_OBJ)
 LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,avb)
-
-LOCAL_C_INCLUDES := \
+LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libkernelflinger)
-LOCAL_C_INCLUDES := \
+LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libsslsupport)
-include $(BUILD_ABL_EXECUTABLE)
+include $(BUILD_SBL_EXECUTABLE)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := fb4abl-$(TARGET_BUILD_VARIANT)
-LOCAL_MODULE_STEM := fb4abl
+LOCAL_MODULE := fb4sbl-$(TARGET_BUILD_VARIANT)
+LOCAL_MODULE_STEM := fb4sbl
 LOCAL_CFLAGS := $(SHARED_CFLAGS)
 
 LOCAL_CFLAGS += -D__FORCE_FASTBOOT
@@ -486,7 +501,8 @@ LOCAL_STATIC_LIBRARIES += \
 	libefiwrapper-$(TARGET_BUILD_VARIANT) \
 	libefiwrapper_drivers-$(TARGET_BUILD_VARIANT) \
 	efiwrapper-$(TARGET_BUILD_VARIANT) \
-	libelfloader-$(TARGET_BUILD_VARIANT)
+	libelfloader-$(TARGET_BUILD_VARIANT) \
+	libxbc-$(TARGET_BUILD_VARIANT)
 
 ifeq ($(TARGET_USE_TRUSTY),true)
     LOCAL_STATIC_LIBRARIES += libqltipc-$(TARGET_BUILD_VARIANT)
@@ -496,12 +512,17 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
     LOCAL_STATIC_LIBRARIES += libadb-$(TARGET_BUILD_VARIANT)
 endif
 LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
+#reuse kernelflinger.c
 LOCAL_SRC_FILES := \
-	kf4abl.c
+	kernelflinger.c
 
 ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
     LOCAL_SRC_FILES += \
         ux.c
+endif
+
+ifneq ($(TARGET_BUILD_VARIANT),user)
+    LOCAL_SRC_FILES += unittest.c
 endif
 
 ifeq ($(PRODUCT_SUPPORTS_VERITY),true)
@@ -511,11 +532,11 @@ endif
 LOCAL_GENERATED_SOURCES += $(ABL_AVB_PK_OBJ)
 LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,avb)
-LOCAL_C_INCLUDES := \
+LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libkernelflinger)
-LOCAL_C_INCLUDES := \
+LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libsslsupport)
-include $(BUILD_ABL_EXECUTABLE)
+include $(BUILD_SBL_EXECUTABLE)
 
 endif  #KERNELFLINGER_SUPPORT_NON_EFI_BOOT
 

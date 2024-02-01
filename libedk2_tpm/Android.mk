@@ -15,7 +15,6 @@ LOCAL_STATIC_LIBRARIES := libgnuefi \
 LOCAL_SRC_FILES := \
         Tpm2NVStorage.c \
         Tpm2Random.c \
-        Tpm2DeviceLib.c \
         Tpm2Help.c \
         Tpm2Context.c \
         Tpm2EnhancedAuthorization.c \
@@ -25,8 +24,18 @@ LOCAL_SRC_FILES := \
         Tpm2Session.c \
         Tpm2Capability.c
 
+ifeq ($(TARGET_USE_SBL),true)
+LOCAL_SRC_FILES += \
+       RegisterFilterLibNull.c \
+       Tpm2Ptp.c \
+       IoLib.c \
+       Tpm2Tis.c
+else
+LOCAL_SRC_FILES += Tpm2DeviceLib.c
+endif
+
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include \
-                    $(LOCAL_PATH)/../include/libkernelflinger \
+                    $(LOCAL_PATH)/../include \
                     $(res_intermediates)
 
 include $(BUILD_EFI_STATIC_LIBRARY)

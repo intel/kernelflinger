@@ -60,6 +60,22 @@ int km_boot_params_serialize(const struct km_boot_params *params, uint8_t **out,
                              uint32_t *out_size);
 
 /**
+ * Serializes a km_boot_patchlevel structure. On success, allocates |*out_size|
+ * bytes to |*out| and writes the serialized |params| to |*out|. Caller takes
+ * ownership of |*out|. Returns one of trusty_err.
+ */
+int km_boot_patchlevel_serialize(const struct km_boot_patchlevel *params, uint8_t **out,
+                             uint32_t *out_size);
+
+/**
+ * Serializes a km_attestation_ids structure. On success, allocates |*out_size|
+ * bytes to |*out| and writes the serialized |params| to |*out|. Caller takes
+ * ownership of |*out|. Returns one of trusty_err.
+ */
+int km_attestation_ids_serialize(const struct km_attestation_ids *params, uint8_t **out,
+                             uint32_t *out_size);
+
+/**
  * Serializes a km_attestation_data structure. On success, allocates |*out_size|
  * bytes to |*out| and writes the serialized |data| to |*out|. Caller takes
  * ownership of |*out|. Returns one of trusty_err.

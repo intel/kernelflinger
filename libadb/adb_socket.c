@@ -150,7 +150,12 @@ EFI_STATUS asock_write(asock_t s, unsigned char *data, UINT32 length)
 	if (!s || length > adb_max_payload)
 		return EFI_INVALID_PARAMETER;
 
+#ifdef CRASHMODE_USE_ADB
+	ret = memdump(s->data, sizeof(s->data), data, length);
+#elif
 	ret = memcpy_s(s->data, sizeof(s->data), data, length);
+#endif
+
 	if (EFI_ERROR(ret))
 		return ret;
 	s->wrt.data = s->data;

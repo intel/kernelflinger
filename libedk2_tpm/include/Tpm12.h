@@ -16,6 +16,9 @@
 #ifndef _TPM12_H_
 #define _TPM12_H_
 
+#include <efi.h>
+#include <efiapi.h>
+
 ///
 /// The start of TPM return codes
 ///

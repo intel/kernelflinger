@@ -76,6 +76,64 @@ int km_boot_params_serialize(const struct km_boot_params *params, uint8_t** out,
     return TRUSTY_ERR_NONE;
 }
 
+int km_boot_patchlevel_serialize(const struct km_boot_patchlevel *params, uint8_t** out,
+                             uint32_t *out_size)
+{
+    if (!out || !params || !out_size) {
+        return TRUSTY_ERR_INVALID_ARGS;
+    }
+    *out_size = (sizeof(params->boot_patchlevel));
+    *out = trusty_calloc(*out_size, 1);
+    if (!*out) {
+        return TRUSTY_ERR_NO_MEMORY;
+    }
+    
+    append_uint32_to_buf(*out, params->boot_patchlevel);
+
+    return TRUSTY_ERR_NONE;
+}
+
+int km_attestation_ids_serialize(const struct km_attestation_ids *params, uint8_t** out,
+                             uint32_t *out_size)
+{
+    uint8_t *tmp;
+
+    if (!out || !params || !out_size) {
+        return TRUSTY_ERR_INVALID_ARGS;
+    }
+    *out_size = (sizeof(params->brand_size) +
+                 sizeof(params->device_size) +
+                 sizeof(params->product_size) +
+                 sizeof(params->serial_size) +
+                 sizeof(params->imei_size) +
+                 sizeof(params->meid_size) +
+                 sizeof(params->manufacturer_size) +
+                 sizeof(params->model_size) +
+                 params->brand_size +
+                 params->device_size +
+                 params->product_size +
+                 params->serial_size +
+                 params->imei_size +
+                 params->meid_size +
+                 params->manufacturer_size +
+                 params->model_size);
+    *out = trusty_calloc(*out_size, 1);
+    if (!*out) {
+        return TRUSTY_ERR_NO_MEMORY;
+    }
+
+    tmp = append_sized_buf_to_buf(*out, params->brand, params->brand_size);
+    tmp = append_sized_buf_to_buf(tmp, params->device, params->device_size);
+    tmp = append_sized_buf_to_buf(tmp, params->product, params->product_size);
+    tmp = append_sized_buf_to_buf(tmp, params->serial, params->serial_size);
+    tmp = append_sized_buf_to_buf(tmp, params->imei, params->imei_size);
+    tmp = append_sized_buf_to_buf(tmp, params->meid, params->meid_size);
+    tmp = append_sized_buf_to_buf(tmp, params->manufacturer, params->manufacturer_size);
+    tmp = append_sized_buf_to_buf(tmp, params->model, params->model_size);
+
+    return TRUSTY_ERR_NONE;
+}
+
 int km_attestation_data_serialize(const struct km_attestation_data *data,
                                  uint8_t** out, uint32_t *out_size)
 {

@@ -9,11 +9,11 @@
  * are met:
  *
  *    * Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
+ *	notice, this list of conditions and the following disclaimer.
  *    * Redistributions in binary form must reproduce the above copyright
- *      notice, this list of conditions and the following disclaimer
- *      in the documentation and/or other materials provided with the
- *      distribution.
+ *	notice, this list of conditions and the following disclaimer
+ *	in the documentation and/or other materials provided with the
+ *	distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -33,23 +33,36 @@
 #include <efi.h>
 #include <lib.h>
 #include <byteswap.h>
+#include "ivshmem.h"
 #include "Tcg2Protocol.h"
 #include "Tpm2CommandLib.h"
 #include "tpm2_security.h"
 #include "Tpm2Help.h"
 #include "security.h"
 
+EFI_STATUS tpm2_fuse_vbmeta_key_hash(
+		__attribute__((__unused__)) void *data,
+		__attribute__((__unused__)) uint32_t size)
+{
+	return EFI_UNSUPPORTED;
+}
+
+EFI_STATUS tpm2_fuse_bootloader_policy(
+		__attribute__((__unused__)) void *data,
+		__attribute__((__unused__)) uint32_t size)
+{
+	return EFI_UNSUPPORTED;
+}
+
+#ifndef USE_IVSHMEM
+
 enum NV_INDEX {
-	NV_INDEX_TRUSTYOS_SEED = 0x01500047,
-	NV_INDEX_BOOTLOADER
+	NV_INDEX_TRUSTYOS_SEED = 0x01500080,
+	NV_INDEX_OPTEEOS_SEED = 0x01500081,
+	NV_INDEX_BOOTLOADER = 0x01500082,
 };
 
 #define MAX_NV_NUMBER		ARRAY_SIZE(config_table)
-
-#define PCR_7   7
-
-#define Set_PcrSelect_Bit(pcrSelection, pcr) \
-		((pcrSelection).pcrSelect[((pcr)/8)] |= (1 << ((pcr) % 8)))
 
 #define DIGEST_SIZE 32
 
@@ -58,32 +71,63 @@ typedef struct {
 	TPMA_NV attribute;
 } attribute_matrix_t;
 
-static const attribute_matrix_t config_table[] = {
+static const attribute_matrix_t config_table[] =
+{
 	{NV_INDEX_TRUSTYOS_SEED,
-		/* The Index data may be read if the authPolicy is satisfied. */
-		{.TPMA_NV_POLICYREAD = 1,
+		{
+		/* The Index data can be written if Owner Authorization is provided. */
+		.TPMA_NV_OWNERWRITE = 1,
 		/* Authorizations to change the Index contents that require
-		 * USER role may be provided with a policy session.
-		 */
-		.TPMA_NV_POLICYWRITE = 1,
+			* USER role may be provided with an HMAC session or password.
+		*/
+		.TPMA_NV_AUTHWRITE = 1,
+		/* The Index data may be read if the authValue is provided. */
+		. TPMA_NV_AUTHREAD = 1,
 		/* A partial write of the Index data is not allowed. The write size
-		 * shall match the defined space size.
-		 */
+			* shall match the defined space size.
+			*/
 		.TPMA_NV_WRITEALL = 1,
 		/* TPM2_NV_WriteLock may be used to prevent further writes
-		 * to this location regardless of TPM reset/restart.
-		 */
+			* to this location regardless of TPM reset/restart.
+			*/
 		.TPMA_NV_WRITEDEFINE = 1,
 		/* TPM2_NV_ReadLock may be used to SET TPMA_NV_READLOCKED
-		 * for this Index. When TPMA_NV_READLOCKED is set after calling TPM2_NV_ReadLock,
-		 * Reads of this Index are blocked until the next TPM Reset or TPM Restart.
-		 */
+			* for this Index. When TPMA_NV_READLOCKED is set after calling TPM2_NV_ReadLock,
+			* Reads of this Index are blocked until the next TPM Reset or TPM Restart.
+			*/
 		.TPMA_NV_READ_STCLEAR = 1,
 		}
 	},
-	{NV_INDEX_BOOTLOADER,
-		{.TPMA_NV_POLICYREAD = 1,
-		.TPMA_NV_POLICYWRITE = 1,
+	{NV_INDEX_OPTEEOS_SEED,
+		{
+		/* The Index data can be written if Owner Authorization is provided. */
+		.TPMA_NV_OWNERWRITE = 1,
+		/* Authorizations to change the Index contents that require
+			* USER role may be provided with an HMAC session or password.
+		*/
+		.TPMA_NV_AUTHWRITE = 1,
+		/* The Index data may be read if the authValue is provided. */
+		. TPMA_NV_AUTHREAD = 1,
+		/* A partial write of the Index data is not allowed. The write size
+			* shall match the defined space size.
+			*/
+		.TPMA_NV_WRITEALL = 1,
+		/* TPM2_NV_WriteLock may be used to prevent further writes
+			* to this location regardless of TPM reset/restart.
+			*/
+		.TPMA_NV_WRITEDEFINE = 1,
+		/* TPM2_NV_ReadLock may be used to SET TPMA_NV_READLOCKED
+			* for this Index. When TPMA_NV_READLOCKED is set after calling TPM2_NV_ReadLock,
+			* Reads of this Index are blocked until the next TPM Reset or TPM Restart.
+			*/
+		.TPMA_NV_READ_STCLEAR = 1,
+		}
+	},
+    {NV_INDEX_BOOTLOADER,
+		{
+		.TPMA_NV_OWNERWRITE = 1,
+		.TPMA_NV_AUTHWRITE = 1,
+		.TPMA_NV_AUTHREAD = 1,
 		.TPMA_NV_WRITE_STCLEAR = 1,
 		.TPMA_NV_READ_STCLEAR = 1,
 		}
@@ -102,11 +146,11 @@ typedef struct {
 
 
 static EFI_STATUS tpm2_get_capability(
-		IN      TPM_CAP                   Capability,
-		IN      UINT32                    Property,
-		IN      UINT32                    PropertyCount,
-		OUT     TPMI_YES_NO               * MoreData,
-		OUT     TPMS_CAPABILITY_DATA      * CapabilityData
+		IN	TPM_CAP			  Capability,
+		IN	UINT32			  Property,
+		IN	UINT32			  PropertyCount,
+		OUT	TPMI_YES_NO		  * MoreData,
+		OUT	TPMS_CAPABILITY_DATA	  * CapabilityData
 		)
 {
 	EFI_STATUS ret;
@@ -155,122 +199,13 @@ static EFI_STATUS tpm2_get_cap_permanent(TPMA_PERMANENT *per)
 	return ret;
 }
 
-static EFI_STATUS build_pcr_policy(TPMI_SH_AUTH_SESSION *sessionhandle,
-				TPM2B_DIGEST *policy_digest,
-				TPMS_AUTH_COMMAND *policy_session,
-				BOOLEAN is_trial)
+static EFI_STATUS tpm2_create_nvindex(TPMI_RH_NV_INDEX nv_index,
+				TPMA_NV attributes,
+				UINT32 data_size)
 {
-	EFI_STATUS ret = EFI_SUCCESS;
-	TPM2B_ENCRYPTED_SECRET encryptedSalt;
-	TPMT_SYM_DEF symmetric = {.algorithm = TPM_ALG_NULL};
-	TPM2B_NONCE nonceCaller, nonceTpm;
-	TPM2B_DIGEST pcrDigest;
-	TPML_PCR_SELECTION pcrs;
-	TPML_DIGEST pcrValues;
-	UINT32 pcrUpdateCounter;
-	TPML_PCR_SELECTION pcrSelectionOut;
-
-	encryptedSalt.size = 0;
-	nonceCaller.size = DIGEST_SIZE;
-	ret = Tpm2GetRandom(DIGEST_SIZE, &nonceCaller);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"failed to get random");
-		return ret;
-	}
-
-	nonceTpm.size = sizeof(nonceTpm) - sizeof(UINT16);
-
-	ret = Tpm2StartAuthSession(TPM_RH_NULL,
-				TPM_RH_NULL,
-				&nonceCaller,
-				&encryptedSalt,
-				is_trial ? TPM_SE_TRIAL : TPM_SE_POLICY,
-				&symmetric,
-				TPM_ALG_SHA256,
-				sessionhandle,
-				&nonceTpm);
-
-	memset_s(nonceCaller.buffer, DIGEST_SIZE, 0, DIGEST_SIZE);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"StartAuthSession failed");
-		return ret;
-	}
-
-	pcrs.count = 1;
-	pcrs.pcrSelections[0].hash = TPM_ALG_SHA1;
-	pcrs.pcrSelections[0].sizeofSelect = 3;
-	pcrs.pcrSelections[0].pcrSelect[0] = 0;
-	pcrs.pcrSelections[0].pcrSelect[1] = 0;
-	pcrs.pcrSelections[0].pcrSelect[2] = 0;
-	Set_PcrSelect_Bit(pcrs.pcrSelections[0], PCR_7);
-
-	//1. Read PCRs (&pcrSelectionOut MUST NOT be NULL!!!!!)
-	ret = Tpm2PcrRead(&pcrs, &pcrUpdateCounter, &pcrSelectionOut, &pcrValues);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Tpm2PcrRead failed");
-		return ret;
-	}
-
-	if (pcrSelectionOut.count <= 0) {
-		error(L"pcrSelectionOut.count <= 0");
-		return EFI_INVALID_PARAMETER;
-	}
-
-	// 2. Hash those PCRs together
-	pcrDigest.size = sizeof(pcrDigest) - sizeof(UINT16);
-	ret = Tpm2HashSequence(TPM_ALG_SHA256, pcrValues.count, &pcrValues.digests[0], &pcrDigest);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"HashSequence failed");
-		return ret;
-	}
-
-	//3. Apply selected PCRs' pcrDigest (as approvedPcrDigest) to policyDigest
-	ret = Tpm2PolicyPCR(*sessionhandle, &pcrDigest, &pcrs);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"PolicyPCR failed");
-		return ret;
-	}
-
-	//4. Get policyDigest hash
-	if (policy_digest) {
-		ret = Tpm2PolicyGetDigest(*sessionhandle, policy_digest);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"PolicyGetDigest failed");
-			return ret;
-		}
-	}
-
-	if (is_trial) {
-		// Need to flush the session here for trial policy only
-		ret = Tpm2FlushContext(*sessionhandle);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"FlushContext failed if trailsession");
-			return ret;
-		}
-	}
-
-	//5. Apply policy session handle
-	if (policy_session) {
-		policy_session->sessionHandle = *sessionhandle;
-		policy_session->hmac.size = 0;
-		policy_session->nonce.size = 0;
-		*((UINT8 *)((void *)&(policy_session->sessionAttributes))) = 0;
-		policy_session->sessionAttributes.continueSession = 1;
-	}
-
-	return EFI_SUCCESS;
-}
-
-EFI_STATUS tpm2_create_nvindex(TPMI_RH_NV_INDEX nv_index,
-			       TPMA_NV attributes,
-			       UINT32 data_size)
-{
-	EFI_STATUS ret;
 	TPMI_RH_PROVISION auth_handle = TPM_RH_OWNER;
-	TPMI_SH_AUTH_SESSION session_handle = 0;
-	TPM2B_DIGEST policy_digest;
-	TPM2B_NV_PUBLIC public_info;
-	TPM2B_AUTH nv_auth;
+	TPM2B_NV_PUBLIC public_info = {0};
+	TPM2B_AUTH nv_auth = {0};
 
 	nv_auth.size = 0;
 	public_info.size = sizeof(TPMI_RH_NV_INDEX)
@@ -283,202 +218,88 @@ EFI_STATUS tpm2_create_nvindex(TPMI_RH_NV_INDEX nv_index,
 	public_info.nvPublic.authPolicy.size = 0;
 	public_info.nvPublic.dataSize = data_size;
 
-	ret = build_pcr_policy(&session_handle, &policy_digest, NULL, TRUE);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"build PCR policy failed");
-		return ret;
-	}
-	public_info.nvPublic.authPolicy.size = policy_digest.size;
-	// enable policy for this index now
-	ret = memcpy_s(public_info.nvPublic.authPolicy.buffer,
-				   sizeof(public_info.nvPublic.authPolicy.buffer),
-				   policy_digest.buffer, policy_digest.size);
-	if (EFI_ERROR(ret))
-		return ret;
-
-	public_info.size += public_info.nvPublic.authPolicy.size;
 	return Tpm2NvDefineSpace(auth_handle, NULL,
 				 &nv_auth, &public_info);
 }
 
-EFI_STATUS tpm2_write_nvindex(TPMI_RH_NV_INDEX nv_index,
-			      UINT16 data_size, BYTE *data, UINT16 offset)
+static EFI_STATUS tpm2_write_nvindex(TPMI_RH_NV_INDEX nv_index,
+				UINT16 data_size,
+				BYTE *data,
+				UINT16 offset)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
 	TPMS_AUTH_COMMAND session_data = {0};
-	TPMI_SH_AUTH_SESSION session_handle = 0;
-	TPM2B_MAX_BUFFER nv_write_data;
-	UINT16 left_size = data_size;
-	UINT16 written_size = 0;
-	UINT16 cur_size;
+	TPM2B_MAX_BUFFER nv_write_data = {0};
+	INT8 retry_times = 5;
 
-	ret = build_pcr_policy(&session_handle, NULL, &session_data, FALSE);
+	session_data.sessionHandle = TPM_RS_PW;
+
+	nv_write_data.size = data_size;
+	memcpy(nv_write_data.buffer, data, nv_write_data.size);
+
+	do {
+		ret = Tpm2NvWrite(nv_index, nv_index, &session_data, &nv_write_data, offset);
+		retry_times --;
+	} while (ret == EFI_DEVICE_ERROR && retry_times > 0);
+
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"build PCR policy failed");
-		return ret;
-	}
-
-	// Make sure the data buffer not overflow, maybe write data several times.
-	// But if attributes->TPMA_NV_WRITEALL == 1, then write will failed.
-	while (left_size > 0) {
-		cur_size = (left_size > sizeof(nv_write_data.buffer)) ? sizeof(nv_write_data.buffer) : left_size;
-		nv_write_data.size = cur_size;
-		ret = memcpy_s(nv_write_data.buffer, sizeof(nv_write_data.buffer), data + written_size,
-					   nv_write_data.size);
-		if (EFI_ERROR(ret))
-			goto out;
-		ret = Tpm2NvWrite(nv_index, nv_index,
-			   &session_data, &nv_write_data, written_size + offset);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Write TPM NV index failed, index: 0x%x, size: %d, written_size: %d",
-					nv_index, nv_write_data.size, written_size);
-			goto out;
-		}
-		left_size -= cur_size;
-		written_size += cur_size;
-	}
-
-	ret = Tpm2FlushContext(session_handle);
-	if (EFI_ERROR(ret))
-		efi_perror(ret, L"%a - FlushContext failed", __func__);
-
-out:
-	memset_s(&nv_write_data, sizeof(nv_write_data), 0, sizeof(nv_write_data));
-	return ret;
-}
-
-EFI_STATUS tpm2_write_lock_nvindex(TPMI_RH_NV_INDEX nv_index)
-{
-	EFI_STATUS ret = EFI_SUCCESS;
-	TPMS_AUTH_COMMAND session_data = {0};
-	TPMI_SH_AUTH_SESSION session_handle = 0;
-
-	ret = build_pcr_policy(&session_handle, NULL, &session_data, FALSE);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"build PCR policy failed");
-		return ret;
-	}
-
-	ret = Tpm2NvWriteLock(nv_index, nv_index, &session_data);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Tpm2NvWriteLock nv_index 0x%x failed", nv_index);
-		return ret;
-	}
-
-	ret = Tpm2FlushContext(session_handle);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"%a - FlushContext failed", __func__);
-		return ret;
+		efi_perror(ret, L"Write TPM NV index failed, index: 0x%x, size: %d\n",
+						nv_index, nv_write_data.size);
 	}
 
 	return ret;
 }
 
-EFI_STATUS tpm2_read_nvindex(TPMI_RH_NV_INDEX nv_index,
-				UINT16 *data_size, BYTE *data, UINT16 offset)
+static EFI_STATUS tpm2_write_lock_nvindex(TPMI_RH_NV_INDEX nv_index)
+{
+	TPMS_AUTH_COMMAND session_data = {0};
+
+	session_data.sessionHandle = TPM_RS_PW;
+
+	return Tpm2NvWriteLock(nv_index, nv_index, &session_data);
+}
+
+static EFI_STATUS tpm2_read_nvindex(TPMI_RH_NV_INDEX nv_index,
+				UINT16 data_size,
+				BYTE *data,
+				UINT16 offset)
 {
 	EFI_STATUS ret;
 	TPMS_AUTH_COMMAND session_data = {0};
-	TPMI_SH_AUTH_SESSION session_handle = 0;
-	TPM2B_MAX_BUFFER nv_read_data;
-	UINT16 left_size = *data_size;
-	UINT16 read_size = 0;
-	UINT16 cur_size;
+	TPM2B_MAX_BUFFER nv_read_data = {0};
+	INT8 retry_times = 5;
 
-	ret = build_pcr_policy(&session_handle, NULL, &session_data, FALSE);
+	session_data.sessionHandle  = TPM_RS_PW;
+	session_data.nonce.size	    = 0;
+	*((UINT8 *) &(session_data.sessionAttributes)) = 0;
+	session_data.hmac.size	    = 0;
+
+	nv_read_data.size = data_size;
+
+	do {
+		ret = Tpm2NvRead(nv_index, nv_index, &session_data, nv_read_data.size, offset, &nv_read_data);
+		retry_times --;
+	} while (ret == EFI_DEVICE_ERROR && retry_times > 0);
+
 	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"build PCR policy failed");
+		efi_perror(ret, L"Read NVIndex failed\n");
 		return ret;
 	}
-
-	while (left_size > 0) {
-		cur_size = (left_size > sizeof(nv_read_data.buffer)) ? sizeof(nv_read_data.buffer) : left_size;
-		nv_read_data.size = cur_size;
-
-		ret = Tpm2NvRead(nv_index, nv_index, &session_data, nv_read_data.size, read_size + offset, &nv_read_data);
-		if (EFI_ERROR(ret)) {
-			efi_perror(ret, L"Read NVIndex failed");
-			return ret;
-		}
-		if (nv_read_data.size > cur_size) {
-			// Overflow?
-			error(L"Overflow after read the NVindex");
-			return EFI_ABORTED;
-		}
-		if (nv_read_data.size == 0) {
-			// No data read
-			break;
-		}
-		ret = memcpy_s(data + read_size, nv_read_data.size, nv_read_data.buffer, nv_read_data.size);
-		if (EFI_ERROR(ret))
-			return ret;
-		left_size -= nv_read_data.size;
-		read_size += nv_read_data.size;
-	}
-	*data_size = read_size;
-	memset_s(&nv_read_data, sizeof(nv_read_data), 0, sizeof(nv_read_data));
-
-	ret = Tpm2FlushContext(session_handle);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"%a - FlushContext failed", __func__);
-		return ret;
-	}
+	memcpy(data, nv_read_data.buffer, nv_read_data.size);
 
 	return EFI_SUCCESS;
 }
 
-EFI_STATUS tpm2_read_lock_nvindex(TPMI_RH_NV_INDEX nv_index)
+static EFI_STATUS tpm2_read_lock_nvindex(TPMI_RH_NV_INDEX nv_index)
 {
-	EFI_STATUS ret;
 	TPMS_AUTH_COMMAND session_data = {0};
-	TPMI_SH_AUTH_SESSION session_handle = 0;
 
-	ret = build_pcr_policy(&session_handle, NULL, &session_data, FALSE);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"build PCR policy failed");
-		return ret;
-	}
+	session_data.sessionHandle  = TPM_RS_PW;
+	session_data.nonce.size	    = 0;
+	*((UINT8 *)&(session_data.sessionAttributes)) = 0;
+	session_data.hmac.size	    = 0;
 
-	ret = Tpm2NvReadLock(nv_index, nv_index, &session_data);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Tpm2NvReadLock nv_index 0x%x failed", nv_index);
-		return ret;
-	}
-
-	ret = Tpm2FlushContext(session_handle);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"%a - FlushContext failed", __func__);
-		return ret;
-	}
-
-	return EFI_SUCCESS;
-}
-
-static EFI_STATUS tpm2_set_nvbits(TPMI_RH_NV_INDEX nv_index, UINT64 set_bits)
-{
-	EFI_STATUS ret;
-	TPMS_AUTH_COMMAND session_data = {0};
-	TPMI_SH_AUTH_SESSION session_handle = 0;
-
-	ret = build_pcr_policy(&session_handle, NULL, &session_data, FALSE);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"build PCR policy failed");
-		return ret;
-	}
-
-	ret = Tpm2NvSetBits(nv_index, nv_index, &session_data, set_bits);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"set nvbits failed");
-		return ret;
-	}
-
-	ret = Tpm2FlushContext(session_handle);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"%a - FlushContext failed", __func__);
-		return ret;
-	}
-
-	return EFI_SUCCESS;
+	return Tpm2NvReadLock(nv_index, nv_index, &session_data);
 }
 
 static EFI_STATUS check_provision_status(void)
@@ -674,7 +495,7 @@ static EFI_STATUS tpm2_check_cap_permanent(void)
 
 	/* Verify the LOCKOUT_AUTH */
 	if (!per.lockoutAuthSet)
-		error(L"TPM LOCKOUT_AUTH is not set, set it can get higher security");
+		info(L"TPM LOCKOUT_AUTH is not set, set it can get higher security");
 
 	if (!per.ownerAuthSet)
 		info(L"TPM owner is not taken! Take it after verification to get higher security!");
@@ -706,7 +527,7 @@ EFI_STATUS tpm2_fuse_trusty_seed(void)
 	debug(L"Success create and write trusty seed");
 
 	// Read the data again to verify it
-	ret = tpm2_read_nvindex(NV_INDEX_TRUSTYOS_SEED, &read_seed_size, read_seed, 0);
+	ret = tpm2_read_nvindex(NV_INDEX_TRUSTYOS_SEED, read_seed_size, read_seed, 0);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Read trusty seed back failed just after write it");
 		goto out;
@@ -726,34 +547,14 @@ out:
 	return ret;
 }
 
-static EFI_STATUS extend_pcr7(void)
-{
-	EFI_STATUS                ret;
-	TPML_DIGEST_VALUES        Digests;
-	UINT32                    DigestSize = 0;
-	TPMI_DH_PCR               PcrHandle;
-
-	Digests.count = 1;
-	Digests.digests[0].hashAlg = TPM_ALG_SHA256;
-	PcrHandle = PCR_7;
-
-	DigestSize = GetHashSizeFromAlgo(Digests.digests[0].hashAlg);
-	memset_s((UINT8 *)&Digests.digests[0].digest, DigestSize, 0, DigestSize);
-	ret =  Tpm2PcrExtend(PcrHandle, &Digests);
-	if (EFI_ERROR(ret))
-		efi_perror(ret, L"Extend PCR7 failed");
-
-	return ret;
-}
-
 EFI_STATUS tpm2_read_trusty_seed(UINT8 seed[TRUSTY_SEED_SIZE])
 {
 	EFI_STATUS ret;
 	EFI_STATUS ret2;
 	UINT16 seed_size = TRUSTY_SEED_SIZE;
 
-	ret = tpm2_read_nvindex(NV_INDEX_TRUSTYOS_SEED, &seed_size, seed, 0);
-	ret2 = tpm2_read_lock_nvindex(NV_INDEX_TRUSTYOS_SEED);  // Lock anyway
+	ret = tpm2_read_nvindex(NV_INDEX_TRUSTYOS_SEED, seed_size, seed, 0);
+	ret2 = tpm2_read_lock_nvindex(NV_INDEX_TRUSTYOS_SEED);	// Lock anyway
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Read trusty seed failed");
 		goto out;
@@ -816,20 +617,6 @@ static EFI_STATUS tpm2_check_trusty_seed_index(void)
 	return EFI_SUCCESS;
 }
 
-EFI_STATUS tpm2_fuse_vbmeta_key_hash(
-		__attribute__((__unused__)) void *data,
-		__attribute__((__unused__)) uint32_t size)
-{
-	return EFI_UNSUPPORTED;
-}
-
-EFI_STATUS tpm2_fuse_bootloader_policy(
-		__attribute__((__unused__)) void *data,
-		__attribute__((__unused__)) uint32_t size)
-{
-	return EFI_UNSUPPORTED;
-}
-
 static EFI_STATUS tpm2_fuse_bootloader(void)
 {
 	EFI_STATUS ret;
@@ -857,7 +644,7 @@ static EFI_STATUS tpm2_fuse_bootloader(void)
 	}
 
 	/* Read the data again to verify it */
-	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_read_size, data_read, 0);
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, data_read_size, data_read, 0);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Read bootloader NV index back failed just after write it");
 		return ret;
@@ -907,7 +694,7 @@ static EFI_STATUS tpm2_check_bootloader_index(void)
 		return EFI_COMPROMISED_DATA;
 	}
 
-	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_size,
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, data_size,
 			(BYTE *)&struct_ver,
 			offsetof(tpm2_bootloader_t, struct_ver));
 	if (EFI_ERROR(ret) || data_size != sizeof(struct_ver)) {
@@ -934,7 +721,7 @@ EFI_STATUS read_device_state_tpm2(UINT8 *state)
 	EFI_STATUS ret;
 	UINT16 data_size = sizeof(UINT8);
 
-	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_size, (BYTE *)state,
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, data_size, (BYTE *)state,
 			offsetof(tpm2_bootloader_t, lock_state));
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Read device state from TPM failed");
@@ -975,7 +762,7 @@ EFI_STATUS read_rollback_index_tpm2(size_t rollback_index_slot, uint64_t *out_ro
 		return EFI_INVALID_PARAMETER;
 	}
 
-	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, &data_size, (BYTE *)out_rollback_index,
+	ret = tpm2_read_nvindex(NV_INDEX_BOOTLOADER, data_size, (BYTE *)out_rollback_index,
 			rollback_index_slot * sizeof(uint64_t) + offsetof(tpm2_bootloader_t, rollback_index));
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Read rollback index from TPM failed, slot: %d", rollback_index_slot);
@@ -1059,7 +846,150 @@ EFI_STATUS tpm2_end(void)
 	tpm2_read_lock_nvindex(NV_INDEX_BOOTLOADER);
 	tpm2_write_lock_nvindex(NV_INDEX_BOOTLOADER);
 
-	extend_pcr7();
-
 	return EFI_SUCCESS;
 }
+
+#else //USE_IVSHMEM
+////////////////////////////TPM Requests are forwared to OPTEE/////////////////////////////
+
+EFI_STATUS tpm2_init(void)
+{
+	struct tpm2_int_req req = {0};
+	req.cmd = TEE_TPM2_INIT;
+	ivshmem_rollback_index_interrupt(&req);
+
+	if (EFI_ERROR(req.ret)) {
+		efi_perror(req.ret, L"TPM init failed.");
+		return req.ret;
+	}
+
+	if (is_platform_secure_boot_enabled())
+		debug(L"TPM init OK. Secure boot ENABLED.");
+	else
+		debug(L"TPM init OK. Secure boot DISABLED.");
+
+	return req.ret;
+}
+
+EFI_STATUS tpm2_end(void)
+{
+	struct tpm2_int_req req = {0};
+	req.cmd = TEE_TPM2_END;
+	ivshmem_rollback_index_interrupt(&req);
+
+	return req.ret;
+}
+
+EFI_STATUS read_device_state_tpm2(UINT8 *state)
+{
+	struct tpm2_int_req *req = (struct tpm2_int_req *)AllocateZeroPool(sizeof(struct tpm2_int_req) + sizeof(state));
+	if (!req)
+		return EFI_OUT_OF_RESOURCES;
+
+	req->cmd = TEE_TPM2_READ_DEVICE_STATE;
+	req->size = sizeof(*state);
+
+	ivshmem_rollback_index_interrupt(req);
+
+	EFI_STATUS ret = req->ret;
+	*state = *(UINT8 *)(req->payload);
+
+	FreePool(req);
+	return ret;
+}
+
+EFI_STATUS write_device_state_tpm2(UINT8 state)
+{
+	struct tpm2_int_req *req = (struct tpm2_int_req *)AllocateZeroPool(sizeof(struct tpm2_int_req) + sizeof(state));
+	if (!req)
+		return EFI_OUT_OF_RESOURCES;
+
+	req->cmd = TEE_TPM2_WRITE_DEVICE_STATE;
+	req->size = sizeof(state);
+	*(UINT8 *)(req->payload) = state;
+
+	ivshmem_rollback_index_interrupt(req);
+	EFI_STATUS ret = req->ret;
+
+	FreePool(req);
+	return ret;
+}
+
+EFI_STATUS read_rollback_index_tpm2(size_t rollback_index_slot, uint64_t *out_rollback_index)
+{
+	uint32_t payload_len = sizeof(rollback_index_slot) + sizeof(*out_rollback_index);
+	struct tpm2_int_req *req = (struct tpm2_int_req *)AllocateZeroPool(sizeof(struct tpm2_int_req) + payload_len);
+	if (!req)
+		return EFI_OUT_OF_RESOURCES;
+
+	req->cmd = TEE_TPM2_READ_ROLLBACK_INDEX;
+	req->size = payload_len;
+
+	ivshmem_rollback_index_interrupt(req);
+
+	*out_rollback_index = *(uint64_t*)((req->payload)+sizeof(rollback_index_slot));
+	EFI_STATUS ret = req->ret;
+
+	FreePool(req);
+
+	debug(L"Read rollback index from TPM success, slot: %d, index: 0x%llx", rollback_index_slot, *out_rollback_index);
+	return ret;
+}
+
+EFI_STATUS write_rollback_index_tpm2(size_t rollback_index_slot, uint64_t rollback_index)
+{
+	uint32_t payload_len = sizeof(rollback_index_slot) + sizeof(rollback_index);
+	struct tpm2_int_req *req = (struct tpm2_int_req *)AllocateZeroPool(sizeof(struct tpm2_int_req) + payload_len);
+	if (!req)
+		return EFI_OUT_OF_RESOURCES;
+
+	req->cmd = TEE_TPM2_WRITE_ROLLBACK_INDEX;
+	req->size = payload_len;
+
+	ivshmem_rollback_index_interrupt(req);
+
+	EFI_STATUS ret = req->ret;
+	FreePool(req);
+
+	debug(L"Write rollback index to TPM success, slot: %d, index: 0x%llx", rollback_index_slot, rollback_index);
+	return ret;
+}
+
+BOOLEAN tpm2_bootloader_need_init(void)
+{
+	struct tpm2_int_req req = {0};
+	req.cmd = TEE_TPM2_BOOTLOADER_NEED_INIT;
+	ivshmem_rollback_index_interrupt(&req);
+
+	return req.ret;
+}
+
+#ifndef USER
+EFI_STATUS tpm2_show_index(__attribute__((unused)) UINT32 index, __attribute__((unused)) uint8_t *out_buffer, __attribute__((unused)) UINTN out_buffer_size)
+{
+	return EFI_UNSUPPORTED;
+}
+
+EFI_STATUS tpm2_delete_index(__attribute__((unused)) UINT32 index)
+{
+	return EFI_UNSUPPORTED;
+}
+
+#endif	// USER
+
+EFI_STATUS tpm2_fuse_lock_owner(void)
+{
+	struct tpm2_int_req req = {0};
+	req.cmd = TEE_TPM2_FUSE_LOCK_OWNER;
+	ivshmem_rollback_index_interrupt(&req);
+
+	return req.ret;
+}
+
+EFI_STATUS tpm2_fuse_provision_seed(void)
+{
+	return EFI_UNSUPPORTED;
+}
+
+
+#endif //USE_IVSHMEM

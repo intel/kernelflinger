@@ -290,6 +290,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	}
 
 	init_rot_data(boot_state);
+        init_attestation_ids();
 
 #ifdef USE_TRUSTY
 	debug(L"TRUSTY enabled...\n");
